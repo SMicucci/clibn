@@ -29,8 +29,8 @@ int main(void)
         print_vector(v_int, DATA); /* PRINT */
         // wrong usage are safe?
         printf("> do some action out of scope stuff...\n");
-        vector_insert(v_int, vector_count(v_int) + 2, &((int){15 << 4}));
-        free(vector_remove(v_int, vector_count(v_int) + 2));
+        vector_insert(v_int, vector_nelem(v_int) + 2, &((int){15 << 4}));
+        free(vector_remove(v_int, vector_nelem(v_int) + 2));
         print_vector(v_int, DATA); /* PRINT */
         // free it
         printf("> pop everything and beyond...\n");
@@ -46,10 +46,10 @@ static inline void print_vector(vector const *src, enum vp_mode mode)
 {
         if (mode & LABEL) {
                 printf("vector<%s>[%lu]: %lu\n", vector_type(src),
-                       vector_cap(src), vector_count(src));
+                       vector_cap(src), vector_nelem(src));
         }
         if (mode & DATA) {
-                u_int64_t n = vector_count(src);
+                u_int64_t n = vector_nelem(src);
                 u_int64_t s = vector_size(src);
                 if (n) {
                         printf("size: %lu\n - data:\n[\n", n);

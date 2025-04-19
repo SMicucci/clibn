@@ -1,8 +1,7 @@
 # Get all subdirectories
 COMMON = libs/. include/.
-SUBDIRS := $(filter-out $(COMMON), $(wildcard */.))
+SUBDIRS := $(patsubst %/., %, $(filter-out $(COMMON), $(wildcard */.)))
 ACTIONS = build debug static clean
-# SUBDIRS := $(filter-out libs/. include/., $(wildcard */.))
 
 .PHONY: $(SUBDIRS) $(SUBDIRS:%=%-target) $(ACTIONS)
 
