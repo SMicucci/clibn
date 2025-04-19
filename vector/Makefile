@@ -1,41 +1,62 @@
+#
+# MODIFY HERE
+#
 
+LIB_n = vector
+TEST = test
+BIN_n = test.out
+# directories names
+DEPS_d =
+INC_d = include
+SRC_d = src
+OBJ_d = obj
+BIN_d = bin
+
+#
+# LEAVE AS IT IS
+#
 CC = gcc
 CFLAGS = -Wall -Werror -Wextra -O2
 DBGFLAGS = -g -O0
+CPPFLAG = -I$(INC_d)
+CPPFLAG += $(foreach dep,$(DEPS_d),-I../$(dep)/$(INC_d))
 
-SRC = src/vector.c
-OBJ = $(patsubst src/%, obj/%, $(SRC:.c=.o))
-DEPS = src/vector.h
+SRC = $(filter-out $(SRC_d)/$(TEST).c, $(wildcard $(SRC_d)/*.c))
+OBJ = $(patsubst $(SRC_d)/%, $(OBJ_d)/%, $(SRC:.c=.o))
 
-BIN = bin
+.PHONY: dirs build debug static clean port
 
-.PHONY: directories default debug static test clean
-
-default: directories $(BIN)/libvector.so
+build: dirs $(BIN_d)/lib$(LIB_n).so port
 
 debug: CFLAGS += $(DBGFLAGS)
-debug: directories $(BIN)/libvector.so $(BIN)/test
+debug: dirs $(BIN_d)/$(BIN_n)
 
-static: directories $(BIN)/libvector.a
+static: dirs $(BIN_d)/lib$(LIB_n).a
 
-test: directories $(BIN)/test
+dirs:
+	@mkdir -p $(BIN_d) $(OBJ_d) ../libs ../include
 
-directories:
-	mkdir -p $(BIN)
-	mkdir -p obj
+port: $(BIN_d)/lib$(LIB_n).so
+	@cp $(BIN_d)/lib$(LIB_n).so ../libs
+	@cp $(INC_d)/*.h ../include
 
-obj/%.o: src/%.c $(DEPS)
-	$(CC) -c -fPIC -o $@ $< $(CFLAGS)
+$(OBJ): $(SRC) $(DEPS)
+	$(CC) -c -fPIC $(CPPFLAG) -o $@ $< $(CFLAGS)
 
-$(BIN)/libvector.so: $(OBJ)
+$(BIN_d)/lib$(LIB_n).so: $(OBJ)
+	@if [ -n "$(strip $(DEPS_d))" ]; then \
+		for dep in $(DEPS_d); do \
+			$(MAKE) -C ../$$dep build || exit 1; \
+		 done; \
+	 fi
 	$(CC) -shared -o $@ $^
 
-$(BIN)/libvector.a: $(OBJ)
+$(BIN_d)/lib$(LIB_n).a: $(OBJ)
 	ar rcs $@ $^
 
-$(BIN)/test: src/test.c $(BIN)/libvector.a
-	$(CC) -L$(BIN) -Wl,-rpath,$(BIN) -o $@ $< -lvector $(CFLAGS)
+$(BIN_d)/$(BIN_n): src/$(TEST).c $(BIN_d)/lib$(LIB_n).a
+	$(CC) -L$(BIN_d) -Wl,-rpath,$(BIN_d) -o $@ $< -l$(LIB_n) $(CFLAGS)
 
 clean:
-	rm -rf $(BIN)
-	rm -rf obj
+	$(RM) -r $(BIN_d) $(OBJ_d)
+	$(RM) -r ../include/$(LIB_n).h ../libs/lib$(LIB_n).so

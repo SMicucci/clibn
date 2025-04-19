@@ -9,13 +9,15 @@ ACTIONS = build debug static clean
 $(SUBDIRS):
 	@$(MAKE) -C $@ $(word 2, $(MAKECMDGOALS))
 
-%-target:
+ifeq ($(filter $(firstword $(MAKECMDGOALS)), $(SUBDIRS)),)
+$(ACTIONS):
 	@for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir $*; \
+		$(MAKE) -C $$dir $@; \
 	done
-
-build debug static clean:
-	@$(MAKE) $@-target
+else
+$(ACTIONS):
+	@:
+endif
 
 %:
 	@:
