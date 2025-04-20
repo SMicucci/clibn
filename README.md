@@ -10,7 +10,7 @@ It is made to work with posix Os only by design, no desire for portability (just
 **Actions**:
 - build => generate dynamic library and create a copy of header and dynamic library
 - debug => build everything with debug information, either the test file with main function.
-- static => create a static library from the dynamic library, but don't export that
+- test => run test under valgrind to check for memory leakage
 - clean => remove object, binaries and copy generated
 
 **Subproject + Action**:

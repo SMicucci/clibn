@@ -24,7 +24,7 @@ CPPFLAG += $(foreach dep,$(DEPS_d),-I../$(dep)/$(INC_d))
 SRC = $(filter-out $(SRC_d)/$(TEST).c, $(wildcard $(SRC_d)/*.c))
 OBJ = $(patsubst $(SRC_d)/%, $(OBJ_d)/%, $(SRC:.c=.o))
 
-.PHONY: dirs build debug static clean port
+.PHONY: dirs build debug clean port test
 
 build: dirs $(BIN_d)/lib$(LIB_n).so port
 
@@ -51,12 +51,12 @@ $(BIN_d)/lib$(LIB_n).so: $(OBJ)
 	 fi
 	$(CC) -shared -o $@ $^
 
-$(BIN_d)/lib$(LIB_n).a: $(OBJ)
-	ar rcs $@ $^
-
 $(BIN_d)/$(BIN_n): src/$(TEST).c $(BIN_d)/lib$(LIB_n).a
 	$(CC) -L$(BIN_d) -Wl,-rpath,$(BIN_d) -o $@ $< -l$(LIB_n) $(CFLAGS)
 
+test: debug
+	@valgrind -s $(BIN_d)/$(BIN_n)
+
 clean:
-	$(RM) -r $(BIN_d) $(OBJ_d)
-	$(RM) -r ../include/$(LIB_n).h ../libs/lib$(LIB_n).so
+	@rm -rf $(BIN_d) $(OBJ_d)
+	@rm -f ../include/$(LIB_n).h ../libs/lib$(LIB_n).so
