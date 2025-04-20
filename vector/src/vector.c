@@ -132,12 +132,12 @@ void *vector_remove(vector *this, u_int64_t pos)
         assert(this && "not valid vector");
         assert(this->data && "not valid vector (data)");
         assert(this->nelem > pos && "position out of scope");
-        if (!(this->nelem - pos)) {
+        if (!(this->nelem - pos - 1)) {
                 return vector_pop(this);
         }
         void *res = calloc(1, this->size);
-        memcpy(res, this->data + this->nelem * this->size, this->size);
-        this->nelem--;
+        void *src = this->data + (--this->nelem * this->size);
+        memcpy(res, src, this->size);
         _vector_shift(this, pos, BACKWARD);
         return res;
 }
@@ -168,6 +168,9 @@ static inline int _vector_grow(vector *this)
 // BACKWARD: `(from + 1) -> from` .. `[(n + 1) -> n]`
 static inline int _vector_shift(vector *this, u_int64_t from, direction dir)
 {
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
+        assert(this->nelem > from && "position out of scope");
         if (!this || this->nelem < from) {
                 errno = EINVAL;
                 return -1;
@@ -175,8 +178,8 @@ static inline int _vector_shift(vector *this, u_int64_t from, direction dir)
         switch (dir) {
                 case FORWARD:
                         for (u_int64_t i = this->nelem; i > from; i--) {
-                                void *dest = this->data + this->size * i;
-                                void *src = this->data + this->size * (i - 1);
+                                void *dest = this->data + (this->size * i);
+                                void *src = this->data + (this->size * (i - 1));
                                 memcpy(dest, src, this->size);
                         }
                         // zeros double data
@@ -184,16 +187,15 @@ static inline int _vector_shift(vector *this, u_int64_t from, direction dir)
                         return 0;
                 case BACKWARD:
                         for (u_int64_t i = from; i < this->nelem; i++) {
-                                void *dest = this->data + this->size * i;
-                                void *src = this->data + this->size * (i + 1);
+                                void *dest = this->data + (this->size * i);
+                                void *src = this->data + (this->size * (i + 1));
                                 memcpy(dest, src, this->size);
                         }
                         // zeros double data
-                        memset(this->data + this->size * (this->size + 1), 0,
+                        memset(this->data + this->size * (this->nelem + 1), 0,
                                this->size);
                         return 0;
                 default:
-                        errno = EINVAL;
-                        return -1;
+                        assert(0 && "not valid direction");
         }
 }

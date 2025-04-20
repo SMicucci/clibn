@@ -14,40 +14,71 @@ int main(void)
         /// init vector
         //////////////////////////////////////////////////
         vector *v_int = vector_new(int);
-        printf("> initialized vector\n");
+        printf("> initialized vector \x1b[1m[%p]\x1b[0m\n", v_int);
+        printf("  > test utilities with print vector function\n");
         print_vector(v_int, print_int);
         //////////////////////////////////////////////////
-        /// push and pop stuff
+        /// push stuff
         //////////////////////////////////////////////////
-        int n_push = 20;
-        printf("[ ");
-        for (int i = 0; i < n_push; i++) {
+        int iter = 20;
+        printf("\n> push %d value\n", iter);
+        for (int i = 0; i < iter; i++) {
                 vector_push(v_int, &(int){3 + (i << 2)});
-                printf("%d", 3 + (i << 2));
-                if (n_push - i - 1) {
-                        printf(", ");
-                }
         }
-        printf(" ] pushed v_int\n");
         print_vector(v_int, print_int);
-        // time to pop
-        printf("[ ");
-        for (int i = 0; i < n_push / 2; i++) {
-                int *r = vector_pop(v_int);
-                int v = *r;
-                printf("%d", v);
-                if (n_push / 2 - i - 1) {
-                        printf(", ");
-                }
-                free(r);
+        //////////////////////////////////////////////////
+        /// pop half size
+        //////////////////////////////////////////////////
+        iter >>= 1;
+        printf("\n> pop %d value\n", iter);
+        for (int i = 0; i < iter; i++) {
+                free(vector_pop(v_int));
         }
-        printf(" ] popped v_int\n");
+        print_vector(v_int, print_int);
+        //////////////////////////////////////////////////
+        /// set odd value to zero
+        //////////////////////////////////////////////////
+        printf("\n> set to \"0xDEADBEEF\" odd value\n");
+        for (int i = 0; i < (int)vector_nelem(v_int); i++) {
+                if ((i % 2)) {
+                        vector_set(v_int, i, &(int){0xDEADBEEF});
+                }
+        }
+        print_vector(v_int, print_int);
+        //////////////////////////////////////////////////
+        /// remove odd value
+        //////////////////////////////////////////////////
+        printf("\n> remove odd value\n");
+        for (int i = (int)vector_nelem(v_int); i >= 0; i--) {
+                if (i % 2) {
+                        free(vector_remove(v_int, i));
+                }
+        }
+        print_vector(v_int, print_int);
+        //////////////////////////////////////////////////
+        /// insert new fun value
+        //////////////////////////////////////////////////
+        printf("\n> insert new value \x1b[3m(NICE)\x1b[0m\n");
+        for (int i = 0; i <= (int)vector_nelem(v_int); i++) {
+                if (i % 2) {
+                        vector_insert(v_int, i, &(int){69420});
+                }
+        }
+        print_vector(v_int, print_int);
+        //////////////////////////////////////////////////
+        /// clean vector
+        //////////////////////////////////////////////////
+        printf("\n> clean vector \x1b[3m(not required for free it)\x1b[0m\n");
+        for (int i = vector_nelem(v_int); i > 0; i--) {
+                free(vector_pop(v_int));
+        }
         print_vector(v_int, print_int);
         //////////////////////////////////////////////////
         /// free vector
         //////////////////////////////////////////////////
         vector_delete(v_int);
-        printf("> freed vector\n");
+        v_int = NULL;
+        printf("\n> freed vector \x1b[1m[%p]\x1b[0m\n", v_int);
         return 0;
 }
 
@@ -99,7 +130,7 @@ static inline void print_vector(vector const *src, void (*print_value)(void *))
 
 static inline void print_int(void *arg)
 {
-        printf("%04d", *(int *)arg);
+        printf("%2d", *(int *)arg);
         return;
 }
 
