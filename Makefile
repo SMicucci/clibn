@@ -3,7 +3,7 @@ COMMON = libs/. include/.
 SUBDIRS := $(patsubst %/., %, $(filter-out $(COMMON), $(wildcard */.)))
 ACTIONS = build debug static clean
 
-.PHONY: $(SUBDIRS) $(SUBDIRS:%=%-target) $(ACTIONS)
+.PHONY: $(SUBDIRS) $(ACTIONS)
 
 $(SUBDIRS):
 	@$(MAKE) -C $@ $(word 2, $(MAKECMDGOALS))

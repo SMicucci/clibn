@@ -4,90 +4,109 @@
 #include <sys/types.h>
 
 enum vp_mode { NONE, LABEL, DATA, ALL };
-static inline void print_vector(vector const *src, enum vp_mode mode);
-static inline void print_bits(u_int8_t trg);
+static inline void print_vector(vector const *src, void (*print_val)(void *));
+static inline void print_hex(void *arg, u_int64_t size);
+static inline void print_int(void *arg);
 
 int main(void)
 {
-        // test vector creation
-        void *v_int = vector_new(int);
-        // add some stuff
-        printf("> push some stuff...\n");
-        vector_push(v_int, &((int){15 << 4}));
-        vector_push(v_int, &((int){15 << 4}));
-        vector_push(v_int, &((int){15 << 4}));
-        print_vector(v_int, ALL); /* PRINT */
-        // discrete insertion
-        printf("> insert other stuff...\n");
-        vector_insert(v_int, 0, &((int){15}));
-        vector_insert(v_int, 2, &((int){15}));
-        print_vector(v_int, DATA); /* PRINT */
-        // discrete extraction
-        printf("> remove newer stuff...\n");
-        free(vector_remove(v_int, 0));
-        free(vector_remove(v_int, 1));
-        print_vector(v_int, DATA); /* PRINT */
-        // wrong usage are safe?
-        printf("> do some action out of scope stuff...\n");
-        vector_insert(v_int, vector_nelem(v_int) + 2, &((int){15 << 4}));
-        free(vector_remove(v_int, vector_nelem(v_int) + 2));
-        print_vector(v_int, DATA); /* PRINT */
-        // free it
-        printf("> pop everything and beyond...\n");
-        for (int i = 0; i < 10; i++) {
-                free(vector_pop(v_int));
-        }
-        print_vector(v_int, ALL); /* PRINT */
-        vector_delete(v_int);
-        return EXIT_SUCCESS;
-}
-
-static inline void print_vector(vector const *src, enum vp_mode mode)
-{
-        if (mode & LABEL) {
-                printf("vector<%s>[%lu]: %lu\n", vector_type(src),
-                       vector_cap(src), vector_nelem(src));
-        }
-        if (mode & DATA) {
-                u_int64_t n = vector_nelem(src);
-                u_int64_t s = vector_size(src);
-                if (n) {
-                        printf("size: %lu\n - data:\n[\n", n);
-                        for (u_int64_t i = 0; i < n; i++) {
-                                u_int8_t *b_elem =
-                                    (u_int8_t *)vector_get(src, i);
-                                printf("%8lu:(", i);
-                                for (u_int64_t j = 0; j < s; j++) {
-                                        if (s > 8 && j > 2) {
-                                                break;
-                                        }
-                                        print_bits(b_elem[j]);
-                                        if (s - j - 1) {
-                                                printf("-");
-                                        }
-                                }
-                                if (s > 8) {
-                                        printf("... ");
-                                }
-                                printf(")");
-                                if (n - i - 1) {
-                                        printf(",");
-                                }
-                                printf("\n");
-                                free(b_elem);
-                        }
-                        printf("]\n");
+        //////////////////////////////////////////////////
+        /// init vector
+        //////////////////////////////////////////////////
+        vector *v_int = vector_new(int);
+        printf("> initialized vector\n");
+        print_vector(v_int, print_int);
+        //////////////////////////////////////////////////
+        /// push and pop stuff
+        //////////////////////////////////////////////////
+        int n_push = 20;
+        printf("[ ");
+        for (int i = 0; i < n_push; i++) {
+                vector_push(v_int, &(int){3 + (i << 2)});
+                printf("%d", 3 + (i << 2));
+                if (n_push - i - 1) {
+                        printf(", ");
                 }
         }
+        printf(" ] pushed v_int\n");
+        print_vector(v_int, print_int);
+        // time to pop
+        printf("[ ");
+        for (int i = 0; i < n_push / 2; i++) {
+                int *r = vector_pop(v_int);
+                int v = *r;
+                printf("%d", v);
+                if (n_push / 2 - i - 1) {
+                        printf(", ");
+                }
+                free(r);
+        }
+        printf(" ] popped v_int\n");
+        print_vector(v_int, print_int);
+        //////////////////////////////////////////////////
+        /// free vector
+        //////////////////////////////////////////////////
+        vector_delete(v_int);
+        printf("> freed vector\n");
+        return 0;
+}
+
+#define D "\x1b[0m"
+#define S "\x1b[1m"
+#define s "\x1b[22m"
+#define I "\x1b[3m"
+#define X "\x1b[37m"
+#define R "\x1b[31m"
+#define G "\x1b[32m"
+#define Y "\x1b[33m"
+#define B "\x1b[34m"
+#define P "\x1b[35m"
+#define C "\x1b[36m"
+
+static inline void print_vector(vector const *src, void (*print_value)(void *))
+{
+        u_int64_t n = vector_nelem(src);
+        printf("%svector%s<%s%s%s>%s%s[%s%lu%s]%s: %s%lu%s\n", C, Y, B,
+               vector_type(src), Y, X, S, R, vector_cap(src), X, D, S, n, s);
+        printf("%sdata%s: %s[%s ", C, D, S, P);
+        for (u_int64_t i = 0; i < n; i++) {
+                void *val = vector_get(src, i);
+                if (print_value) {
+                        print_value(val);
+                } else {
+                        print_hex(val, vector_size(src));
+                }
+                free(val);
+                if (n - i - 1) {
+                        printf("%s, %s", X, P);
+                }
+        }
+        printf("%s]%s\n", X, D);
         return;
 }
 
-static inline void print_bits(u_int8_t trg)
+#undef D
+#undef S
+#undef s
+#undef I
+#undef X
+#undef R
+#undef G
+#undef Y
+#undef B
+#undef P
+#undef C
+
+static inline void print_int(void *arg)
 {
-        for (int8_t i = 7; i >= 0; i--) {
-                u_int8_t pos = 1 << i;
-                u_int8_t mod = trg & pos;
-                u_int8_t bit = mod ? 1 : 0;
-                printf("%d", bit);
+        printf("%04d", *(int *)arg);
+        return;
+}
+
+static inline void print_hex(void *arg, u_int64_t size)
+{
+        for (u_int64_t i = 0; i < size; i++) {
+                printf("%02X-", ((unsigned char *)arg)[i]);
         }
+        return;
 }

@@ -1,5 +1,6 @@
 #include "../include/vector.h"
 #include <asm-generic/errno-base.h>
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,26 +12,7 @@
 #endif
 
 #ifndef VECTOR_INIT_CAP
-#define VECTOR_INIT_CAP 16
-#endif
-
-// not the proudest but i think it work
-#ifndef __ptr_assert
-#define __ptr_assert(ptr)                                                      \
-        do {                                                                   \
-                if (!ptr) {                                                    \
-                        errno = EINVAL;                                        \
-                        const int msg_len =                                    \
-                            strlen(#ptr) + strlen(strerror(errno)) + 5;        \
-                        char *err_msg = calloc(msg_len, sizeof(char));         \
-                        perror(strcat(                                         \
-                            strcat(strcat(strcat(strcat(err_msg, "("), #ptr),  \
-                                          ") "),                               \
-                                   strerror(errno)),                           \
-                            "\n\0"));                                          \
-                        free(err_msg);                                         \
-                }                                                              \
-        } while (0)
+#define VECTOR_INIT_CAP 1 << 3
 #endif
 
 struct vector {
@@ -64,8 +46,8 @@ vector *_vector_new(u_int64_t size, const char *type)
 
 void vector_delete(vector *this)
 {
-        __ptr_assert(this);
-        __ptr_assert(this->data);
+        assert(this && "not valid vector");
+        assert(this->data && "not valid data");
         free(this->data);
         free((void *)this->type);
         free(this);
@@ -79,9 +61,9 @@ const char *vector_type(const vector *this) { return this->type; }
 
 void vector_set(vector *this, u_int64_t pos, const void *val)
 {
-        __ptr_assert(this);
-        __ptr_assert(this->data);
-        __ptr_assert(val);
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
+        assert(val && "not valid value");
         if (this->nelem < pos) {
                 errno = EINVAL;
         }
@@ -90,10 +72,9 @@ void vector_set(vector *this, u_int64_t pos, const void *val)
 
 void *vector_get(const vector *this, u_int64_t pos)
 {
-        __ptr_assert(this);
-        if (this->nelem < pos) {
-                errno = EINVAL;
-        }
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
+        assert(this->nelem > pos && "position out of scope");
         void *val = calloc(1, this->size);
         memcpy(val, this->data + (this->size * pos), this->size);
         return val;
@@ -101,7 +82,9 @@ void *vector_get(const vector *this, u_int64_t pos)
 
 void vector_push(vector *this, const void *val)
 {
-        __ptr_assert(this);
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
+        assert(val && "not valid value");
         if (_vector_grow(this)) {
                 perror(strerror(errno));
                 return;
@@ -112,21 +95,25 @@ void vector_push(vector *this, const void *val)
 
 void *vector_pop(vector *this)
 {
-        __ptr_assert(this);
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
         if (!this->nelem) {
                 return NULL;
         }
-        void *val = calloc(1, this->size);
+        // nelem point to first good entry
+        void *src = this->data + (this->size * --this->nelem);
+        void *res = calloc(1, this->size);
         // number of element point to the next entry
-        memcpy(val, this->data + this->size * this->nelem--, this->size);
-        memset(this->data + this->size * this->nelem, 0, this->size);
-        return val;
+        memcpy(res, src, this->size);
+        memset(src, 0, this->size);
+        return res;
 }
 
 void vector_insert(vector *this, u_int64_t pos, const void *val)
 {
-        __ptr_assert(this);
-        __ptr_assert(val);
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
+        assert(val && "not valid value");
         if (!(this->nelem - pos)) {
                 vector_push(this, val);
                 return;
@@ -142,7 +129,9 @@ void vector_insert(vector *this, u_int64_t pos, const void *val)
 
 void *vector_remove(vector *this, u_int64_t pos)
 {
-        __ptr_assert(this);
+        assert(this && "not valid vector");
+        assert(this->data && "not valid vector (data)");
+        assert(this->nelem > pos && "position out of scope");
         if (!(this->nelem - pos)) {
                 return vector_pop(this);
         }
@@ -157,10 +146,9 @@ void *vector_remove(vector *this, u_int64_t pos)
  * INTERNAL DEFINITION
  */
 
-/**
- * internal check for growing memory.
- * don't increment counter
- */
+// internal check for growing memory
+//
+// don't increment counter
 static inline int _vector_grow(vector *this)
 {
         // continue when is full
@@ -170,19 +158,14 @@ static inline int _vector_grow(vector *this)
         void *__old = this->data;
         this->data = realloc(__old, this->cap * this->size);
         // realloc failed (NULL return)
-        if (!this->data) {
-                errno = EADDRINUSE;
-                this->cap = this->nelem = 0;
-                return -1;
-        }
+        assert(this->data && "reallocation failed, run out of memory");
         return 0;
 }
 
-/**
- * shift every last `(n - from)` value according to dir.
- * FORWARD: `from -> (from + 1)` ..  `[(n - 1) -> n]`.
- * BACKWARD: `(from + 1) -> from` .. `[(n + 1) -> n]`.
- */
+// shift every last `(n - from)` value according to dir.
+// FORWARD: `from -> (from + 1)` ..  `[(n - 1) -> n]`
+//
+// BACKWARD: `(from + 1) -> from` .. `[(n + 1) -> n]`
 static inline int _vector_shift(vector *this, u_int64_t from, direction dir)
 {
         if (!this || this->nelem < from) {

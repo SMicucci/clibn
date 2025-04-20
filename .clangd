@@ -1,4 +1,0 @@
-CompileFlags:
-  Add:
-    - -std=gnu99
-    - -I./include
