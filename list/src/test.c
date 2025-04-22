@@ -1,5 +1,6 @@
 #include "../include/list.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 extern void list_print(list *this, void (*print_value)(void *));
 void print_int(void *arg);
@@ -15,9 +16,51 @@ int main(void)
         //////////////////////////////////////////////////
         /// list_push_front
         //////////////////////////////////////////////////
-        printf("> push in front to list\n");
+        printf("> push in head of the list\n");
+        for (int i = 0; i < 3; i++) {
+                list_push_front(l_int, &(int){i});
+        }
+        list_print(l_int, print_int);
+        //////////////////////////////////////////////////
+        /// list_pop_back
+        //////////////////////////////////////////////////
+        printf("> pop from tail of the list\n");
+        for (int i = 0; i < 3; i++) {
+                free(list_pop_back(l_int));
+        }
+        list_print(l_int, print_int);
+        //////////////////////////////////////////////////
+        /// list_push_back
+        //////////////////////////////////////////////////
+        printf("> push in tail of the list\n");
         for (int i = 0; i < 5; i++) {
-                list_push_front(l_int, &(int){i + 1});
+                list_push_back(l_int, &(int){i + 1});
+        }
+        list_print(l_int, print_int);
+        //////////////////////////////////////////////////
+        /// list_pop_front
+        //////////////////////////////////////////////////
+        printf("> pop from head of the list\n");
+        for (int i = 0; i < 5; i++) {
+                free(list_pop_front(l_int));
+        }
+        list_print(l_int, print_int);
+        //////////////////////////////////////////////////
+        /// list_add
+        //////////////////////////////////////////////////
+        printf("> add to the list\n");
+        for (int i = 0; i < 6; i++) {
+                list_add(l_int, i / 2, &(int){i + 1});
+        }
+        list_print(l_int, print_int);
+        //////////////////////////////////////////////////
+        /// list_remove
+        //////////////////////////////////////////////////
+        printf("> remove from the list\n");
+        for (int i = 6; i > 0; i--) {
+                printf("~~~ iteraction %d ~~~\n", 7 - i);
+                list_remove(l_int, i / 2);
+                list_print(l_int, print_int);
         }
         list_print(l_int, print_int);
         //////////////////////////////////////////////////

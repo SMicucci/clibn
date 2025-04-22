@@ -55,17 +55,22 @@ void list_add(list *this, u_int64_t pos, const void *val)
 {
         assert(this && "null list pointer");
         assert(val && "null value pointer");
-        assert(pos > this->nelem && "position out of list scope");
+        assert(pos <= this->nelem && "position out of list scope");
+        if (!pos) {
+                list_push_front(this, val);
+                return;
+        }
         list_node *next = this->head;
         list_node *prev = this->tail;
         // iterate through position
-        if (this->nelem / pos > 2) {
-                while (pos--) {
+        u_int64_t cnt = pos;
+        if (cnt / 2 < this->nelem) {
+                while (cnt--) {
                         next = next->next;
                 }
                 prev = next->prev;
         } else {
-                while (pos++ < this->nelem) {
+                while (cnt++ < this->nelem) {
                         prev = prev->prev;
                 }
                 next = prev->next;
@@ -74,8 +79,10 @@ void list_add(list *this, u_int64_t pos, const void *val)
         list_node *new = calloc(1, sizeof(*new));
         new->value = calloc(1, this->size);
         memcpy(new->value, val, this->size);
-        next->prev = new;
-        prev->next = new;
+        if (next)
+                next->prev = new;
+        if (prev)
+                prev->next = new;
         new->next = next;
         new->prev = prev;
         // update list values
@@ -91,23 +98,30 @@ void list_add(list *this, u_int64_t pos, const void *val)
 void *list_remove(list *this, u_int64_t pos)
 {
         assert(this && "null list pointer");
-        assert(pos > this->nelem && "position out of list scope");
+        assert(pos <= this->nelem && "position out of list scope");
+        if (!pos)
+                return list_pop_front(this);
         // iterate through position
         list_node *src, *iter;
-        if (this->nelem / pos > 2) {
-                while (pos--) {
+        u_int64_t cnt = pos;
+        if (cnt / 2 < this->nelem) {
+                iter = this->head;
+                while (cnt--) {
                         iter = iter->next;
                 }
                 src = iter->prev;
         } else {
-                while (pos++ < this->nelem) {
+                iter = this->tail;
+                while (cnt++ < this->nelem) {
                         iter = iter->prev;
                 }
                 src = iter->next;
         }
         // update link
-        src->next->prev = src->prev;
-        src->prev->next = src->next;
+        if (src->next)
+                src->next->prev = src->prev;
+        if (src->prev)
+                src->prev->next = src->next;
         // update list
         if (pos == this->nelem) {
                 this->tail = src->prev;
@@ -143,8 +157,14 @@ void *list_pop_front(list *this)
         assert(this && "null list pointer");
         assert(this->nelem && "position out of list scope");
         list_node *trg = this->head;
-        trg->next->prev = NULL;
+        // set new head
         this->head = trg->next;
+        // reduce size
+        if (!--this->nelem) {
+                this->tail = this->head = NULL;
+        } else {
+                this->head->prev = NULL;
+        }
         void *res = trg->value;
         free(trg);
         return res;
@@ -156,8 +176,12 @@ void list_push_back(list *this, const void *val)
         assert(val && "null value pointer");
         list_node *new = calloc(1, sizeof(*new));
         new->prev = this->tail;
+        if (!this->nelem++) {
+                this->head = new;
+        } else {
+                this->tail->next = new;
+        }
         this->tail = new;
-        this->nelem++;
         new->value = calloc(1, this->size);
         memcpy(new->value, val, this->size);
 }
@@ -167,8 +191,14 @@ void *list_pop_back(list *this)
         assert(this && "null list pointer");
         assert(this->nelem && "position out of list scope");
         list_node *trg = this->tail;
-        trg->prev->next = NULL;
+        // set new head
         this->tail = trg->prev;
+        // reduce size
+        if (!--this->nelem) {
+                this->head = this->tail = NULL;
+        } else {
+                this->tail->next = NULL;
+        }
         void *res = trg->value;
         free(trg);
         return res;
