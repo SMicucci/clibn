@@ -1,7 +1,6 @@
 #include "../include/vector.h"
 #include <asm-generic/errno-base.h>
 #include <assert.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,30 +15,31 @@
 #endif
 
 struct vector {
-        const char *type;
-        u_int64_t size, cap, nelem;
+        char *type;
+        u_int64_t size, cap, len;
         void *data;
 };
 
 /**
  * INTERNAL DECLARATION
  */
-typedef enum _direction { FORWARD, BACKWARD } direction;
-static inline int _vector_grow(vector *this);
-static inline int _vector_shift(vector *this, u_int64_t from, direction dir);
+
+static inline void vector_grow(vector *this);
+static inline void vector_shift_up(const vector *this, u_int64_t pos);
+static inline void vector_shift_down(vector *this, u_int64_t pos);
 
 /**
  * EXTERNAL IMPLEMENTATION
  */
+
 vector *_vector_new(u_int64_t size, const char *type)
 {
         vector *this = calloc(1, sizeof(*this));
-        char *_type = calloc(strlen(type) + 1, sizeof(char));
-        strcpy(_type, type);
-        this->type = (const char *)_type;
+        this->type = calloc(strlen(type) + 1, sizeof(char));
+        strcpy(this->type, type);
         this->size = size;
         this->cap = VECTOR_INIT_CAP;
-        this->nelem = 0;
+        this->len = 0;
         this->data = calloc(VECTOR_INIT_CAP, this->size);
         return this;
 }
@@ -54,148 +54,224 @@ void vector_delete(vector *this)
         return;
 }
 
-u_int64_t vector_nelem(const vector *this) { return this->nelem; }
-u_int64_t vector_cap(const vector *this) { return this->cap; }
-u_int64_t vector_size(const vector *this) { return this->size; }
-const char *vector_type(const vector *this) { return this->type; }
-
-void vector_set(vector *this, u_int64_t pos, const void *val)
+u_int64_t vector_len(const vector *this)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        assert(val && "not valid value");
-        if (this->nelem < pos) {
-                errno = EINVAL;
-        }
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return this->len;
+}
+
+u_int64_t vector_cap(const vector *this)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return this->cap;
+}
+
+u_int64_t vector_size(const vector *this)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return this->size;
+}
+
+char *vector_type(const vector *this)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        char *res = calloc(strlen(this->type) + 1, 1);
+        strcpy(res, this->type);
+        return res;
+}
+
+void vector_set_at(vector *this, const void *val, u_int64_t pos)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        assert(val && "null val pointer");
+        assert(pos < this->len && "access out of scope");
         memcpy(this->data + (this->size * pos), val, this->size);
 }
 
-void *vector_get(const vector *this, u_int64_t pos)
+void vector_set_first(vector *this, const void *val)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        assert(this->nelem > pos && "position out of scope");
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return vector_set_at(this, val, 0);
+}
+
+void vector_set_last(vector *this, const void *val)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return vector_set_at(this, val, this->len - 1);
+}
+
+void *vector_peek_at(const vector *this, u_int64_t pos)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        assert(pos < this->len && "access out of scope");
         void *val = calloc(1, this->size);
         memcpy(val, this->data + (this->size * pos), this->size);
         return val;
 }
 
-void vector_push(vector *this, const void *val)
+void *vector_peek_first(const vector *this)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        assert(val && "not valid value");
-        if (_vector_grow(this)) {
-                perror(strerror(errno));
-                return;
-        }
-        memcpy(this->data + (this->nelem++ * this->size), val, this->size);
-        return;
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return vector_peek_at(this, 0);
 }
 
-void *vector_pop(vector *this)
+void *vector_peek_last(const vector *this)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        if (!this->nelem) {
-                return NULL;
-        }
-        // nelem point to first good entry
-        void *src = this->data + (this->size * --this->nelem);
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return vector_peek_at(this, this->len - 1);
+}
+
+// void *vector_remove_last(vector *this)
+// {
+//         assert(this && "null vector pointer");
+//         assert(this->data && "not valid vector");
+//         if (!this->len) {
+//                 return NULL;
+//         }
+//         // nelem point to first good entry
+//         void *src = this->data + (this->size * --this->len);
+//         void *res = calloc(1, this->size);
+//         // number of element point to the next entry
+//         memcpy(res, src, this->size);
+//         memset(src, 0, this->size);
+//         return res;
+// }
+
+void vector_insert_at(vector *this, const void *val, u_int64_t pos)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        assert(val && "null val pointer");
+        assert(pos <= this->len && "access out of scope");
+        vector_grow(this);
+        this->len++;
+        vector_shift_up(this, pos);
+        void *dest = this->data + this->size * pos;
+        memcpy(dest, val, this->size);
+}
+
+void vector_insert_first(vector *this, const void *val)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        vector_insert_at(this, val, 0);
+}
+
+void vector_insert_last(vector *this, const void *val)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        vector_insert_at(this, val, this->len);
+}
+
+void *vector_remove_at(vector *this, u_int64_t pos)
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        assert(this->len > pos && "position out of scope");
+        // if (!(this->len - pos - 1)) {
+        //         return vector_remove_last(this);
+        // }
+        this->len--;
         void *res = calloc(1, this->size);
-        // number of element point to the next entry
+        void *src = this->data + (this->len * this->size);
         memcpy(res, src, this->size);
-        memset(src, 0, this->size);
+        vector_shift_down(this, pos);
         return res;
 }
 
-void vector_insert(vector *this, u_int64_t pos, const void *val)
+void *vector_remove_first(vector *this)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        assert(val && "not valid value");
-        if (!(this->nelem - pos)) {
-                vector_push(this, val);
-                return;
-        }
-        if (_vector_grow(this)) {
-                perror(strerror(errno));
-                return;
-        }
-        this->nelem++;
-        _vector_shift(this, pos, FORWARD);
-        memcpy(this->data + this->size * pos, val, this->size);
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return vector_remove_at(this, 0);
 }
 
-void *vector_remove(vector *this, u_int64_t pos)
+void *vector_remove_last(vector *this)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        assert(this->nelem > pos && "position out of scope");
-        if (!(this->nelem - pos - 1)) {
-                return vector_pop(this);
-        }
-        void *res = calloc(1, this->size);
-        void *src = this->data + (--this->nelem * this->size);
-        memcpy(res, src, this->size);
-        _vector_shift(this, pos, BACKWARD);
-        return res;
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        return vector_remove_at(this, this->len - 1);
 }
 
 /**
  * INTERNAL DEFINITION
  */
 
-// internal check for growing memory
-//
-// don't increment counter
-static inline int _vector_grow(vector *this)
+static inline void vector_grow(vector *this)
 {
         // continue when is full
-        if (this->cap - this->nelem)
-                return 0;
+        if (this->len < this->cap)
+                return;
         this->cap <<= 1;
-        void *__old = this->data;
-        this->data = realloc(__old, this->cap * this->size);
-        // realloc failed (NULL return)
-        assert(this->data && "reallocation failed, run out of memory");
-        return 0;
+        this->data = realloc(this->data, this->cap * this->size);
+        assert(this->data && "failed realloc, run out of memory");
+        return;
 }
 
-// shift every last `(n - from)` value according to dir.
-// FORWARD: `from -> (from + 1)` ..  `[(n - 1) -> n]`
-//
-// BACKWARD: `(from + 1) -> from` .. `[(n + 1) -> n]`
-static inline int _vector_shift(vector *this, u_int64_t from, direction dir)
+// this->len = 8 (pre-incremented from 7)
+// pos = 4
+//                 (moved)      (len)
+//                    |           |- (prev)
+//                    v           v
+//  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+//    |   |   |   |    \   \   \      x
+//    |   |   |   |     \   \   \     |
+//    |   |   |   |      \   \   \    x
+//  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+//    i:              ^  [2] [1] [0]
+//                    |
+//                  (len)
+
+static inline void vector_shift_up(const vector *this, u_int64_t pos)
 {
-        assert(this && "not valid vector");
-        assert(this->data && "not valid vector (data)");
-        assert(this->nelem > from && "position out of scope");
-        if (!this || this->nelem < from) {
-                errno = EINVAL;
-                return -1;
+        assert(pos < this->len && "max capacity, forward shift impossible");
+        u_int64_t i = this->len - 1;
+        while (i > pos) {
+                void *s = this->data + (this->size * (i - 1));
+                void *d = this->data + (this->size * i);
+                memcpy(d, s, this->size);
+                i--;
         }
-        switch (dir) {
-                case FORWARD:
-                        for (u_int64_t i = this->nelem; i > from; i--) {
-                                void *dest = this->data + (this->size * i);
-                                void *src = this->data + (this->size * (i - 1));
-                                memcpy(dest, src, this->size);
-                        }
-                        // zeros double data
-                        memset(this->data + this->size * from, 0, this->size);
-                        return 0;
-                case BACKWARD:
-                        for (u_int64_t i = from; i < this->nelem; i++) {
-                                void *dest = this->data + (this->size * i);
-                                void *src = this->data + (this->size * (i + 1));
-                                memcpy(dest, src, this->size);
-                        }
-                        // zeros double data
-                        memset(this->data + this->size * (this->nelem + 1), 0,
-                               this->size);
-                        return 0;
-                default:
-                        assert(0 && "not valid direction");
+        void *clean = this->data + (this->size * pos);
+        memset(clean, 0, this->size);
+}
+
+// this->len = 7 (pre-decremented from 8)
+// pos = 4
+//                (removed)         (len)
+//                    |       (prev) -|
+//                    v               v
+//  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+//    |   |   |   |      /   /   /    x
+//    |   |   |   |     /   /   /
+//    |   |   |   |    /   /   /  x   x
+//  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+//    i:             [0] [1] [2]  ^
+//                                |
+//                              (len)
+
+static inline void vector_shift_down(vector *this, u_int64_t pos)
+{
+        if (!this->len)
+                return;
+        u_int64_t i = pos;
+        while (i < this->len - 1) {
+                void *s = this->data + (this->size * (i + 1));
+                void *d = this->data + (this->size * i);
+                memcpy(d, s, this->size);
+                i++;
         }
+        void *clean = this->data + (this->size * (this->len));
+        memset(clean, 0, this->size);
 }
