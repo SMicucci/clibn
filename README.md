@@ -9,6 +9,9 @@ It is made to work with posix Os only by design, no desire for portability (just
 The API from this library are build like this: `<data-structure>_<action>`.  
 
 Here are some possible action with theyr meanings:  
+- **size**: retrieval of the memory size of the kind of element stored  
+- **length**: retrieval of the number of elements stored  
+- **type**: retrieval of the kind of element stored
 - **insert_first**: insertion of an element in the first position  
 - **insert_last**: insertion of an element in the last position  
 - **insert_at**: insertion of an element in any valid position  
@@ -21,9 +24,6 @@ Here are some possible action with theyr meanings:
 - **set_first**: modify of an element in the first position  
 - **set_last**: modify of an element in the last position  
 - **set_at**: modify of an element in any valid position  
-- **size**: retrieval of the memory size of the kind of element stored  
-- **length**: retrieval of the number of elements stored  
-- **type**: retrieval of the kind of element stored
 
 # Compiling
 

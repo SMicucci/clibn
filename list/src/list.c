@@ -12,7 +12,7 @@ typedef struct list_node {
 
 struct list {
         char *type;
-        u_int64_t nelem, size;
+        u_int64_t len, size;
         list_node *head, *tail;
 };
 
@@ -27,7 +27,8 @@ list *_list_new(u_int64_t size, char *type)
 
 void list_delete(list *this)
 {
-        assert(this);
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
         free(this->type);
         list_node *iter = this->head;
         while (iter) {
@@ -39,128 +40,141 @@ void list_delete(list *this)
         free(this);
 }
 
-u_int64_t list_nelem(list *this)
+u_int64_t list_len(list *this)
 {
-        assert(this);
-        return this->nelem;
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        return this->len;
 }
 
 u_int64_t list_size(list *this)
 {
-        assert(this);
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
         return this->size;
 }
 
-void list_add(list *this, u_int64_t pos, const void *val)
+const char *list_type(list *this)
 {
         assert(this && "null list pointer");
-        assert(val && "null value pointer");
-        assert(pos <= this->nelem && "position out of list scope");
-        if (!pos) {
-                list_push_front(this, val);
-                return;
-        }
-        list_node *next = this->head;
-        list_node *prev = this->tail;
-        // iterate through position
-        u_int64_t cnt = pos;
-        if (cnt / 2 < this->nelem) {
-                while (cnt--) {
-                        next = next->next;
-                }
-                prev = next->prev;
-        } else {
-                while (cnt++ < this->nelem) {
-                        prev = prev->prev;
-                }
-                next = prev->next;
-        }
-        // generate and link new node
-        list_node *new = calloc(1, sizeof(*new));
-        new->value = calloc(1, this->size);
-        memcpy(new->value, val, this->size);
-        if (next)
-                next->prev = new;
-        if (prev)
-                prev->next = new;
-        new->next = next;
-        new->prev = prev;
-        // update list values
-        if (pos == this->nelem) {
-                this->tail = new;
-        }
-        if (!pos) {
-                this->head = new;
-        }
-        this->nelem++;
-}
-
-void *list_remove(list *this, u_int64_t pos)
-{
-        assert(this && "null list pointer");
-        assert(pos <= this->nelem && "position out of list scope");
-        if (!pos)
-                return list_pop_front(this);
-        // iterate through position
-        list_node *src, *iter;
-        u_int64_t cnt = pos;
-        if (cnt / 2 < this->nelem) {
-                iter = this->head;
-                while (cnt--) {
-                        iter = iter->next;
-                }
-                src = iter->prev;
-        } else {
-                iter = this->tail;
-                while (cnt++ < this->nelem) {
-                        iter = iter->prev;
-                }
-                src = iter->next;
-        }
-        // update link
-        if (src->next)
-                src->next->prev = src->prev;
-        if (src->prev)
-                src->prev->next = src->next;
-        // update list
-        if (pos == this->nelem) {
-                this->tail = src->prev;
-        }
-        if (!pos) {
-                this->head = src->next;
-        }
-        this->nelem--;
-        // free resource and return value
-        void *res = src->value;
-        free(src);
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        char *res = calloc(1, strlen(this->type) + 1);
+        strcpy(res, this->type);
         return res;
 }
 
-void list_push_front(list *this, const void *val)
+void list_insert_at(list *this, const void *val, u_int64_t pos)
 {
         assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
         assert(val && "null value pointer");
-        list_node *new = calloc(1, sizeof(*new));
-        new->next = this->head;
-        if (!this->nelem++) {
-                this->tail = new;
+        assert(pos <= this->len && "position out of scope");
+        list_node *n = NULL, *p = NULL;
+        u_int64_t c;
+        if (pos < this->len / 2) {
+                n = this->head;
+                c = pos;
+                while (c--) {
+                        p = n;
+                        n = n->next;
+                }
+                if (n)
+                        p = n->prev;
         } else {
-                this->head->prev = new;
+                p = this->tail;
+                c = this->len - pos;
+                while (c--) {
+                        n = p;
+                        p = p->prev;
+                }
+                if (p)
+                        n = p->next;
         }
-        this->head = new;
-        new->value = calloc(1, this->size);
-        memcpy(new->value, val, this->size);
+        list_node *d = calloc(1, sizeof(*d));
+        // linking and list entries
+        d->next = n;
+        if (n) {
+                n->prev = d;
+        } else {
+                this->tail = d;
+        }
+        d->prev = p;
+        if (p) {
+                p->next = d;
+        } else {
+                this->head = d;
+        }
+        // storing values
+        d->value = calloc(1, this->size);
+        memcpy(d->value, val, this->size);
+        this->len++;
+        return;
 }
 
-void *list_pop_front(list *this)
+void list_insert_first(list *this, const void *val)
 {
         assert(this && "null list pointer");
-        assert(this->nelem && "position out of list scope");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(val && "null value pointer");
+        list_insert_at(this, val, 0);
+}
+
+void list_insert_last(list *this, const void *val)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(val && "null value pointer");
+        list_insert_at(this, val, this->len);
+}
+
+void *list_remove_at(list *this, u_int64_t pos)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(pos < this->len && "position out of scope");
+        list_node *iter;
+        u_int64_t cnt;
+        this->len--;
+        if (pos < this->len / 2) {
+                iter = this->head;
+                cnt = pos;
+                while (cnt--) {
+                        iter = iter->next;
+                }
+        } else {
+                iter = this->tail;
+                cnt = this->len - pos;
+                while (cnt--) {
+                        iter = iter->prev;
+                }
+        }
+        void *res = iter->value;
+        // check list entry
+        if (iter == this->head)
+                this->head = iter->next;
+        if (iter == this->tail)
+                this->tail = iter->prev;
+        // check linkage
+        if (iter->next) {
+                iter->next->prev = iter->prev;
+        }
+        if (iter->prev) {
+                iter->prev->next = iter->next;
+        }
+        free(iter);
+        return res;
+}
+
+void *list_remove_first(list *this)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(this->len && "position out of list scope");
         list_node *trg = this->head;
         // set new head
         this->head = trg->next;
         // reduce size
-        if (!--this->nelem) {
+        if (!--this->len) {
                 this->tail = this->head = NULL;
         } else {
                 this->head->prev = NULL;
@@ -170,31 +184,16 @@ void *list_pop_front(list *this)
         return res;
 }
 
-void list_push_back(list *this, const void *val)
+void *list_remove_last(list *this)
 {
         assert(this && "null list pointer");
-        assert(val && "null value pointer");
-        list_node *new = calloc(1, sizeof(*new));
-        new->prev = this->tail;
-        if (!this->nelem++) {
-                this->head = new;
-        } else {
-                this->tail->next = new;
-        }
-        this->tail = new;
-        new->value = calloc(1, this->size);
-        memcpy(new->value, val, this->size);
-}
-
-void *list_pop_back(list *this)
-{
-        assert(this && "null list pointer");
-        assert(this->nelem && "position out of list scope");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(this->len && "position out of list scope");
         list_node *trg = this->tail;
         // set new head
         this->tail = trg->prev;
         // reduce size
-        if (!--this->nelem) {
+        if (!--this->len) {
                 this->head = this->tail = NULL;
         } else {
                 this->tail->next = NULL;
@@ -204,19 +203,22 @@ void *list_pop_back(list *this)
         return res;
 }
 
-void *list_set(list *this, u_int64_t pos, const void *val)
+void *list_set_at(list *this, const void *val, u_int64_t pos)
 {
         assert(this && "null list pointer");
-        assert(pos > this->nelem && "position out of list scope");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(pos > this->len && "position out of list scope");
         // iterate through position
         list_node *src, *iter;
-        if (this->nelem / pos > 2) {
+        if (this->len / pos > 2) {
+                iter = this->head;
                 while (pos--) {
                         iter = iter->next;
                 }
                 src = iter->prev;
         } else {
-                while (pos++ < this->nelem) {
+                iter = this->tail;
+                while (pos++ < this->len) {
                         iter = iter->prev;
                 }
                 src = iter->next;
@@ -225,13 +227,13 @@ void *list_set(list *this, u_int64_t pos, const void *val)
         src->next->prev = src->prev;
         src->prev->next = src->next;
         // update list
-        if (pos == this->nelem) {
+        if (pos == this->len) {
                 this->tail = src->prev;
         }
         if (!pos) {
                 this->head = src->next;
         }
-        this->nelem--;
+        this->len--;
         // return old value, assign new value
         void *res = src->value;
         src->value = calloc(1, this->size);
@@ -239,19 +241,34 @@ void *list_set(list *this, u_int64_t pos, const void *val)
         return res;
 }
 
-void *list_get(list *this, u_int64_t pos)
+void *list_set_first(list *this, const void *val)
+{
+        return list_set_at(this, val, 0);
+}
+
+void *list_set_last(list *this, const void *val)
 {
         assert(this && "null list pointer");
-        assert(pos > this->nelem && "position out of list scope");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        return list_set_at(this, val, this->len - 1);
+}
+
+void *list_peek_at(list *this, u_int64_t pos)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        assert(pos > this->len && "position out of list scope");
         // iterate through position
         list_node *src, *iter;
-        if (this->nelem / pos > 2) {
+        if (this->len / pos > 2) {
+                iter = this->head;
                 while (pos--) {
                         iter = iter->next;
                 }
                 src = iter->prev;
         } else {
-                while (pos++ < this->nelem) {
+                iter = this->tail;
+                while (pos++ < this->len) {
                         iter = iter->prev;
                 }
                 src = iter->next;
@@ -260,17 +277,26 @@ void *list_get(list *this, u_int64_t pos)
         src->next->prev = src->prev;
         src->prev->next = src->next;
         // update list
-        if (pos == this->nelem) {
+        if (pos == this->len) {
                 this->tail = src->prev;
         }
         if (!pos) {
                 this->head = src->next;
         }
-        this->nelem--;
+        this->len--;
         // clone current value and return
         void *res = calloc(1, this->size);
         memcpy(res, src->value, this->size);
         return res;
+}
+
+void *list_peek_first(list *this) { return list_peek_at(this, 0); }
+
+void *list_peek_last(list *this)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        return list_peek_at(this, this->len - 1);
 }
 
 //
@@ -302,9 +328,10 @@ static inline void print_hex(void *arg, u_int64_t size)
 
 void list_print(list *this, void (*print_value)(void *))
 {
-        assert(this);
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
         printf("%slist%s<%s%s%s>%s: %s%ld%s\n", C, Y, B, this->type, Y, X, S,
-               this->nelem, D);
+               this->len, D);
         printf("%s[head:%s%p%s | tail:%s%p%s]%s\n", S, G, this->head, X, G,
                this->tail, X, D);
         list_node *iter = this->head;
