@@ -2,15 +2,12 @@
 
 #include <sys/types.h>
 
-// simple vector implementation
 typedef struct vector vector;
 
-// use macro "vector_new(type)" (`vector *v = vector_new(u_int64_t);
 vector *_vector_new(u_int64_t size, const char *type);
 #ifndef vector_new
 #define vector_new(type) _vector_new(sizeof(type), #type)
 #endif
-// free vector
 void vector_delete(vector *this);
 
 char *vector_type(const vector *this);

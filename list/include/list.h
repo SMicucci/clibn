@@ -23,13 +23,9 @@ void *list_remove_first(list *this);
 void *list_remove_last(list *this);
 
 void *list_peek_at(list *this, u_int64_t pos);
+void *list_peek_first(list *this);
+void *list_peek_last(list *this);
 
-void *list_set_at(list *this, const void *val, u_int64_t pos);
-
-#ifndef list_get_first
-#define list_get_first(this) list_peek_at(this, 0)
-#endif
-
-#ifndef list_get_last
-#define list_get_last(this) list_peek_at(this, list_len(this) - 1)
-#endif
+void list_set_at(list *this, const void *val, u_int64_t pos);
+void list_set_first(list *this, const void *val);
+void list_set_last(list *this, const void *val);
