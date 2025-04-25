@@ -24,7 +24,7 @@ CPPFLAG += $(foreach dep,$(DEPS_d),-I../$(dep)/$(INC_d))
 ifeq ($(strip $(DEPS_d)),)
 	LBFLAG = 
 else
-	LBFLAG = -L../libs $(foreach lib, $(DEPS_d), -l$(lib))
+	LBFLAG = -L$(realpath ../libs) $(foreach lib, $(DEPS_d), -l$(lib))
 endif
 
 SRC = $(filter-out $(SRC_d)/$(TEST).c, $(wildcard $(SRC_d)/*.c))

@@ -24,7 +24,7 @@ CPPFLAG += $(foreach dep,$(DEPS_d),-I../$(dep)/$(INC_d))
 ifeq ($(strip $(DEPS_d)),)
 	LBFLAG = 
 else
-	LBFLAG = -L../libs $(foreach lib, $(DEPS_d), -l$(lib))
+	LBFLAG = -L$(realpath ../libs) $(foreach lib, $(DEPS_d), -l$(lib))
 endif
 
 SRC = $(filter-out $(SRC_d)/$(TEST).c, $(wildcard $(SRC_d)/*.c))
@@ -58,7 +58,7 @@ $(BIN_d)/lib$(LIB_n).so: $(OBJ)
 	$(CC) -shared -o $@ $^ $(LBFLAG)
 
 $(BIN_d)/$(BIN_n): src/$(TEST).c $(BIN_d)/lib$(LIB_n).so
-	$(CC) -L$(BIN_d) $(LBFLAG) -Wl,-rpath,$(BIN_d) -o $@ $< -l$(LIB_n) $(CFLAGS)
+	$(CC) -L$(BIN_d) $(LBFLAG) -Wl,-rpath,$(realpath $(BIN_d)) -o $@ $< -l$(LIB_n) $(CFLAGS)
 
 test: debug
 	@valgrind -s $(BIN_d)/$(BIN_n)
