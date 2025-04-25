@@ -116,7 +116,16 @@ void list_insert_first(list *this, const void *val)
         assert(this && "null list pointer");
         assert((!this->len || this->head || this->tail) && "not valid list");
         assert(val && "null value pointer");
-        list_insert_at(this, val, 0);
+        // naive implementation
+        // list_insert_at(this, val, 0);
+        list_node *d = calloc(1, sizeof(*d));
+        d->prev = NULL;
+        d->next = this->head;
+        d->value = calloc(1, this->size);
+        memcpy(d->value, val, this->size);
+        this->head = d;
+        if (!this->len++)
+                this->tail = d;
 }
 
 void list_insert_last(list *this, const void *val)
@@ -124,7 +133,16 @@ void list_insert_last(list *this, const void *val)
         assert(this && "null list pointer");
         assert((!this->len || this->head || this->tail) && "not valid list");
         assert(val && "null value pointer");
-        list_insert_at(this, val, this->len);
+        // naive implementation
+        //  list_insert_at(this, val, this->len);
+        list_node *d = calloc(1, sizeof(*d));
+        d->next = NULL;
+        d->prev = this->tail;
+        d->value = calloc(1, this->size);
+        memcpy(d->value, val, this->size);
+        this->tail = d;
+        if (!this->len++)
+                this->head = d;
 }
 
 void *list_remove_at(list *this, u_int64_t pos)
@@ -171,11 +189,9 @@ void *list_remove_first(list *this)
         assert((!this->len || this->head || this->tail) && "not valid list");
         assert(this->len && "position out of list scope");
         list_node *trg = this->head;
-        // set new head
         this->head = trg->next;
-        // reduce size
         if (!--this->len) {
-                this->tail = this->head = NULL;
+                this->tail = NULL;
         } else {
                 this->head->prev = NULL;
         }
@@ -190,11 +206,9 @@ void *list_remove_last(list *this)
         assert((!this->len || this->head || this->tail) && "not valid list");
         assert(this->len && "position out of list scope");
         list_node *trg = this->tail;
-        // set new head
         this->tail = trg->prev;
-        // reduce size
         if (!--this->len) {
-                this->head = this->tail = NULL;
+                this->head = NULL;
         } else {
                 this->tail->next = NULL;
         }
@@ -226,13 +240,22 @@ void list_set_at(list *this, const void *val, u_int64_t pos)
         return;
 }
 
-void list_set_first(list *this, const void *val) { list_set_at(this, val, 0); }
+void list_set_first(list *this, const void *val)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        // naive implementation
+        // list_set_at(this, val, 0);
+        memcpy(this->head->value, val, this->size);
+}
 
 void list_set_last(list *this, const void *val)
 {
         assert(this && "null list pointer");
         assert((!this->len || this->head || this->tail) && "not valid list");
-        list_set_at(this, val, this->len - 1);
+        // naive implementation
+        // list_set_at(this, val, this->len - 1);
+        memcpy(this->tail->value, val, this->size);
 }
 
 void *list_peek_at(list *this, u_int64_t pos)
@@ -259,13 +282,26 @@ void *list_peek_at(list *this, u_int64_t pos)
         return res;
 }
 
-void *list_peek_first(list *this) { return list_peek_at(this, 0); }
+void *list_peek_first(list *this)
+{
+        assert(this && "null list pointer");
+        assert((!this->len || this->head || this->tail) && "not valid list");
+        // naive implementation
+        // return list_peek_at(this, 0);
+        void *res = calloc(1, this->size);
+        memcpy(res, this->head->value, this->size);
+        return res;
+}
 
 void *list_peek_last(list *this)
 {
         assert(this && "null list pointer");
         assert((!this->len || this->head || this->tail) && "not valid list");
-        return list_peek_at(this, this->len - 1);
+        // naive implementation
+        // return list_peek_at(this, this->len - 1);
+        void *res = calloc(1, this->size);
+        memcpy(res, this->tail->value, this->size);
+        return res;
 }
 
 //
