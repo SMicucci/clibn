@@ -90,21 +90,28 @@ void vector_set_at(vector *this, const void *val, u_int64_t pos)
         assert(this->data && "not valid vector");
         assert(val && "null val pointer");
         assert(pos < this->len && "access out of scope");
-        memcpy(this->data + (this->size * pos), val, this->size);
+        void *trg = this->data + (this->size * pos);
+        memcpy(trg, val, this->size);
 }
 
 void vector_set_first(vector *this, const void *val)
 {
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
-        return vector_set_at(this, val, 0);
+        // naive implementation
+        // return vector_set_at(this, val, 0);
+        void *trg = this->data + (this->size);
+        memcpy(trg, val, this->size);
 }
 
 void vector_set_last(vector *this, const void *val)
 {
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
-        return vector_set_at(this, val, this->len - 1);
+        // naive implementation
+        // return vector_set_at(this, val, this->len - 1);
+        void *trg = this->data + (this->size * (this->len - 1));
+        memcpy(trg, val, this->size);
 }
 
 void *vector_peek_at(const vector *this, u_int64_t pos)
@@ -121,6 +128,7 @@ void *vector_peek_first(const vector *this)
 {
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
+        // naive implementation
         return vector_peek_at(this, 0);
 }
 
@@ -128,24 +136,9 @@ void *vector_peek_last(const vector *this)
 {
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
+        // naive implementation
         return vector_peek_at(this, this->len - 1);
 }
-
-// void *vector_remove_last(vector *this)
-// {
-//         assert(this && "null vector pointer");
-//         assert(this->data && "not valid vector");
-//         if (!this->len) {
-//                 return NULL;
-//         }
-//         // nelem point to first good entry
-//         void *src = this->data + (this->size * --this->len);
-//         void *res = calloc(1, this->size);
-//         // number of element point to the next entry
-//         memcpy(res, src, this->size);
-//         memset(src, 0, this->size);
-//         return res;
-// }
 
 void vector_insert_at(vector *this, const void *val, u_int64_t pos)
 {
@@ -179,9 +172,6 @@ void *vector_remove_at(vector *this, u_int64_t pos)
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
         assert(this->len > pos && "position out of scope");
-        // if (!(this->len - pos - 1)) {
-        //         return vector_remove_last(this);
-        // }
         this->len--;
         void *res = calloc(1, this->size);
         void *src = this->data + (this->len * this->size);
@@ -194,6 +184,7 @@ void *vector_remove_first(vector *this)
 {
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
+        // naive implementation
         return vector_remove_at(this, 0);
 }
 
@@ -201,6 +192,7 @@ void *vector_remove_last(vector *this)
 {
         assert(this && "null vector pointer");
         assert(this->data && "not valid vector");
+        // naive implementation
         return vector_remove_at(this, this->len - 1);
 }
 
@@ -213,9 +205,13 @@ static inline void vector_grow(vector *this)
         // continue when is full
         if (this->len < this->cap)
                 return;
+        // double memory
         this->cap <<= 1;
         this->data = realloc(this->data, this->cap * this->size);
         assert(this->data && "failed realloc, run out of memory");
+        // zeroing new memory
+        void *new_mem = this->data + (this->size * (this->cap >> 1));
+        memset(new_mem, 0, this->size * (this->cap >> 1));
         return;
 }
 
@@ -275,3 +271,66 @@ static inline void vector_shift_down(vector *this, u_int64_t pos)
         void *clean = this->data + (this->size * (this->len));
         memset(clean, 0, this->size);
 }
+
+//
+// DEBUG PRINT
+//
+
+#define D "\x1b[0m"
+#define S "\x1b[1m"
+#define s "\x1b[22m"
+#define I "\x1b[3m"
+#define X "\x1b[37m"
+#define R "\x1b[31m"
+#define G "\x1b[32m"
+#define Y "\x1b[33m"
+#define B "\x1b[34m"
+#define P "\x1b[35m"
+#define C "\x1b[36m"
+
+static inline void print_hex(void *arg, u_int64_t size)
+{
+        for (u_int64_t i = 0; i < size; i++) {
+                unsigned char *p = arg;
+                printf("%02X", p[i]);
+                if (size - i - 1) {
+                        printf("-");
+                }
+        }
+}
+
+void vector_print(vector *this, void (*print_value)(void *))
+{
+        assert(this && "null vector pointer");
+        assert(this->data && "not valid vector");
+        printf("%svector%s<%s%s%s>%s", C, Y, B, this->type, Y, D);
+        printf(": %s%lu%s [%s%lu%s]\n", S, this->len, D, R, this->cap, D);
+        for (u_int64_t i = 0; i < this->cap; i++) {
+                void *val = this->data + (this->size * i);
+                if (print_value && this->len > i) {
+                        printf("%s%2lu:%s [%s", G, i, D, B);
+                        print_value(val);
+                } else {
+                        printf("%s%2lu:%s [%s", R, i, D, P);
+                        print_hex(val, this->size);
+                }
+                printf("%s]", D);
+                if ((i + 1) % 4) {
+                        printf("  ");
+                } else {
+                        printf("\n");
+                }
+        }
+}
+
+#undef D
+#undef S
+#undef s
+#undef I
+#undef X
+#undef R
+#undef G
+#undef Y
+#undef B
+#undef P
+#undef C

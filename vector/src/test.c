@@ -3,143 +3,116 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-enum vp_mode { NONE, LABEL, DATA, ALL };
-static inline void print_vector(vector const *src, void (*print_val)(void *));
-static inline void print_hex(void *arg, u_int64_t size);
-static inline void print_int(void *arg);
+extern void vector_print(vector *this, void (*print_value)(void *));
+void print_int(void *arg);
+
+#define TEST_SIZE 20
+#define MAGIC_NUMBER 420
 
 int main(void)
 {
-        //////////////////////////////////////////////////
-        /// init vector
-        //////////////////////////////////////////////////
-        vector *v_int = vector_new(int);
-        printf("> initialized vector \x1b[1m[%p]\x1b[0m\n", v_int);
-        printf("  > test utilities with print vector function\n");
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// push stuff
-        //////////////////////////////////////////////////
-        int iter = 20;
-        printf("\n> push %d value\n", iter);
-        for (int i = 0; i < iter; i++) {
-                vector_insert_last(v_int, &(int){3 + (i << 2)});
+        int *value = calloc(1, sizeof(*value));
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_new
+        ////////////////////////////////////////////////////////////////////////
+        printf("> new vector\n");
+        vector *l_int = vector_new(int);
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_insert_first
+        ////////////////////////////////////////////////////////////////////////
+        printf("> insert in front of the vector\n");
+        for (int i = 0; i < TEST_SIZE; i++) {
+                vector_insert_first(l_int, &(int){i});
         }
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// pop half size
-        //////////////////////////////////////////////////
-        iter >>= 1;
-        printf("\n> pop %d value\n", iter);
-        for (int i = 0; i < iter; i++) {
-                free(vector_remove_last(v_int));
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_set_first - vector_peek_first
+        ////////////////////////////////////////////////////////////////////////
+        printf("> set and peek in fron of the vector\n");
+        *value = MAGIC_NUMBER;
+        vector_set_first(l_int, value);
+        free(value);
+        value = vector_peek_first(l_int);
+        printf(">>> after change: %d\n", *value);
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_remove_first
+        ////////////////////////////////////////////////////////////////////////
+        printf("> remove at front of the vector\n");
+        for (int i = 0; i < TEST_SIZE; i++) {
+                free(vector_remove_first(l_int));
         }
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// set odd value to zero
-        //////////////////////////////////////////////////
-        printf("\n> set to \"0xDEADBEEF\" odd value\n");
-        for (int i = 0; i < (int)vector_len(v_int); i++) {
-                if ((i % 2)) {
-                        vector_set_at(v_int, &(int){0xDEADBEEF}, i);
-                }
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_insert_last
+        ////////////////////////////////////////////////////////////////////////
+        printf("> insert at back of the vector\n");
+        for (int i = 0; i < TEST_SIZE; i++) {
+                vector_insert_last(l_int, &(int){i + 1});
         }
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// remove odd value
-        //////////////////////////////////////////////////
-        printf("\n> remove odd value\n");
-        for (int i = (int)vector_len(v_int); i >= 0; i--) {
-                if (i % 2) {
-                        free(vector_remove_at(v_int, i));
-                }
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_set_last - vector_peek_last
+        ////////////////////////////////////////////////////////////////////////
+        printf("> set and peek in fron of the vector\n");
+        *value = MAGIC_NUMBER;
+        vector_set_last(l_int, value);
+        free(value);
+        value = vector_peek_last(l_int);
+        printf(">>> after change: %d\n", *value);
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_remove_last
+        ////////////////////////////////////////////////////////////////////////
+        printf("> pop from tail of the vector\n");
+        for (int i = 0; i < TEST_SIZE; i++) {
+                free(vector_remove_last(l_int));
         }
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// insert new fun value
-        //////////////////////////////////////////////////
-        printf("\n> insert new value \x1b[3m(NICE)\x1b[0m\n");
-        for (int i = 0; i <= (int)vector_len(v_int); i++) {
-                if (i % 2) {
-                        vector_insert_at(v_int, &(int){69420}, i);
-                }
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_insert_at
+        ////////////////////////////////////////////////////////////////////////
+        printf("> insert arbitrarly into the vector\n");
+        for (int i = 0; i < TEST_SIZE; i++) {
+                vector_insert_at(l_int, &(int){i + 1}, i / 2);
         }
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// clean vector
-        //////////////////////////////////////////////////
-        printf("\n> clean vector \x1b[3m(not required for free it)\x1b[0m\n");
-        for (int i = vector_len(v_int); i > 0; i--) {
-                free(vector_remove_last(v_int));
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_set_at - vector_peek_at
+        ////////////////////////////////////////////////////////////////////////
+        printf("> set and peek in fron of the vector\n");
+        *value = MAGIC_NUMBER;
+        vector_set_at(l_int, value, TEST_SIZE / 2);
+        free(value);
+        value = vector_peek_at(l_int, TEST_SIZE / 2);
+        printf(">>> after change: %d\n", *value);
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_remove_at
+        ////////////////////////////////////////////////////////////////////////
+        printf("> remove arbitrarly from the vector\n");
+        for (int i = TEST_SIZE; i > 0; i--) {
+                free(vector_remove_at(l_int, i / 2));
         }
-        print_vector(v_int, print_int);
-        //////////////////////////////////////////////////
-        /// free vector
-        //////////////////////////////////////////////////
-        vector_delete(v_int);
-        v_int = NULL;
-        printf("\n> freed vector \x1b[1m[%p]\x1b[0m\n", v_int);
+        vector_print(l_int, print_int);
+
+        ////////////////////////////////////////////////////////////////////////
+        /// vector_delete
+        ////////////////////////////////////////////////////////////////////////
+        printf("> delete vector\n");
+        vector_delete(l_int);
+        free(value);
         return 0;
 }
 
-#define D "\x1b[0m"
-#define S "\x1b[1m"
-#define s "\x1b[22m"
-#define I "\x1b[3m"
-#define X "\x1b[37m"
-#define R "\x1b[31m"
-#define G "\x1b[32m"
-#define Y "\x1b[33m"
-#define B "\x1b[34m"
-#define P "\x1b[35m"
-#define C "\x1b[36m"
-
-static inline void print_vector(vector const *src, void (*print_value)(void *))
-{
-        u_int64_t n = vector_len(src);
-        char *t = vector_type(src);
-        printf("%svector%s<%s%s%s>%s%s[%s%lu%s]%s: %s%lu%s\n", C, Y, B, t, Y, X,
-               S, R, vector_cap(src), X, D, S, n, s);
-        free(t);
-        printf("%sdata%s: %s[%s ", C, D, S, P);
-        for (u_int64_t i = 0; i < n; i++) {
-                void *val = vector_peek_at(src, i);
-                if (print_value) {
-                        print_value(val);
-                } else {
-                        print_hex(val, vector_size(src));
-                }
-                free(val);
-                if (n - i - 1) {
-                        printf("%s, %s", X, P);
-                }
-        }
-        printf("%s]%s\n", X, D);
-        return;
-}
-
-#undef D
-#undef S
-#undef s
-#undef I
-#undef X
-#undef R
-#undef G
-#undef Y
-#undef B
-#undef P
-#undef C
-
-static inline void print_int(void *arg)
-{
-        printf("%2d", *(int *)arg);
-        return;
-}
-
-static inline void print_hex(void *arg, u_int64_t size)
-{
-        for (u_int64_t i = 0; i < size; i++) {
-                printf("%02X-", ((unsigned char *)arg)[i]);
-        }
-        return;
-}
+void print_int(void *arg) { printf("%04d", *(int *)arg); }
