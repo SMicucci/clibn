@@ -58,7 +58,7 @@ $(BIN_d)/lib$(LIB_n).so: $(OBJ)
 	$(CC) -shared -o $@ $^ $(LBFLAG)
 
 $(BIN_d)/$(BIN_n): src/$(TEST).c $(BIN_d)/lib$(LIB_n).so
-	$(CC) -L$(BIN_d) $(LBFLAG) -Wl,-rpath,$(BIN_d) -o $@ $< -l$(LIB_n) $(CFLAGS)
+	$(CC) -L$(BIN_d) $(LBFLAG) -Wl,-rpath,$(realpath $(BIN_d)) -o $@ $< -l$(LIB_n) $(CFLAGS)
 
 test: debug
 	@valgrind -s $(BIN_d)/$(BIN_n)
