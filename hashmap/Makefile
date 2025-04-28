@@ -6,7 +6,7 @@ LIB_n = hashmap
 TEST = test
 BIN_n = test.out
 # directories names
-DEPS_d = vector
+DEPS_d = 
 INC_d = include
 SRC_d = src
 OBJ_d = obj

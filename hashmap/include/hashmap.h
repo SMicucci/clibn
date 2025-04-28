@@ -4,9 +4,9 @@
 
 typedef struct hashmap hashmap;
 
-hashmap *_hashmap_new(u_int64_t entries, u_int64_t size, const char *type);
+hashmap *_hashmap_new(u_int64_t size, const char *type);
 #ifndef hashmap_new
-#define hashmap_new(entries, type) _hashmap_new(entries, sizeof(type), #type);
+#define hashmap_new(type) _hashmap_new(sizeof(type), #type);
 #endif
 void hashmap_delete(hashmap *this);
 
@@ -22,6 +22,7 @@ void *hashmap_remove(hashmap *this, const char *key);
 
 /// SPECIFIC HASHMAP FUNCTION
 
-u_int64_t hashmap_entry(hashmap *this);
+void hashmap_set_hash(hashmap *this, u_int64_t (*hash)(const char *key));
+// void hashmap_reset_hash(hashmap *this);
 const char **hashmap_keys(hashmap *this);
 const void **hashmap_values(hashmap *this);
