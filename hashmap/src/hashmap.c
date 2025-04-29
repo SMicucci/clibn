@@ -10,18 +10,15 @@
 #define NULL 0
 #endif
 
-#ifndef RH_PROBE_EMPTY
 #define RH_PROBE_EMPTY 0x80
-#endif
-#ifndef RH_PROBE_TOMB
 #define RH_PROBE_TOMB 0x40
-#endif
-#ifndef RH_PROBE_JUMP_MASK
 #define RH_PROBE_JUMP_MASK 0x3F
-#endif
 
 #ifndef HASHMAP_INIT_CAP
 #define HASHMAP_INIT_CAP 1 << 5
+#endif
+#ifndef HASHMAP_TRESHOLD
+#define HASHMAP_TRESHOLD 0.85
 #endif
 
 typedef struct {
@@ -41,8 +38,11 @@ struct hashmap {
  * INTERNAL IMPLEMENTATION
  */
 
+u_int64_t hash(const char *key);
 static inline void hashmap_grow(hashmap *this);
-static inline void hashmap_rehash(hashmap *this);
+static inline void hash_probe(hashmap *this, const char *key,
+                              const void *value);
+// static inline void hashmap_rehash(hashmap *this);
 
 /**
  * EXTERNAL IMPLEMENTATION
@@ -54,15 +54,15 @@ hashmap *_hashmap_new(u_int64_t size, const char *type)
         this->cap = HASHMAP_INIT_CAP;
         this->len = 0;
         this->size = size;
-        this->hash = NULL;
+        this->hash = hash;
         this->type = calloc(strlen(type) + 1, 1);
         strcpy(this->type, type);
         this->data = calloc(this->cap, sizeof(hash_node));
         for (u_int64_t i = 0; i < this->cap; i++) {
-                hash_node trg = this->data[i];
-                trg.rh_probe = RH_PROBE_EMPTY;
-                trg.key = NULL;
-                trg.value = NULL;
+                hash_node *trg = &(this->data[i]);
+                trg->rh_probe = RH_PROBE_EMPTY;
+                trg->key = NULL;
+                trg->value = NULL;
         }
         return this;
 }
@@ -102,7 +102,62 @@ const void **hashmap_values(hashmap *this);
  * INTERNAL IMPLEMENTATION
  */
 
-static inline void _hashmap_grow(hashmap *this);
+u_int64_t hash(const char *key)
+{
+        u_int64_t hash = 5381;
+        u_int64_t c;
+        while ((c = (u_int64_t)*key++)) {
+                hash = ((hash << 5) + hash) + c;
+        }
+        return hash;
+}
+
+static inline void hashmap_grow(hashmap *this)
+{
+        hash_node *new_data = calloc(this->cap << 2, sizeof(*new_data));
+}
+
+static inline void hash_probe(hashmap *this, const char *key, const void *value)
+{
+        assert(this && "null hashmap pointer");
+        assert(key && "null key pointer");
+        assert(value && "null value pointer");
+        u_int64_t pos = this->hash(key) % this->cap;
+        u_int8_t jump = 0;
+        char *__key = strdup(key);
+        void *__val = calloc(1, this->size);
+        memcpy(__val, value, this->size);
+        while (1) {
+                u_int64_t index = (pos + (jump * jump)) % this->cap;
+                hash_node *slot = &(this->data[index]);
+                // available slot
+                if (slot->rh_probe & RH_PROBE_EMPTY ||
+                    slot->rh_probe & RH_PROBE_TOMB) {
+                        slot->key = __key;
+                        slot->value = __val;
+                        slot->rh_probe = jump;
+                        break;
+                }
+                assert(strcmp(slot->key, __key) &&
+                       "key inserted already exist");
+                // robin hood swap
+                u_int8_t slot_jump = slot->rh_probe & RH_PROBE_JUMP_MASK;
+                if (slot_jump < jump) {
+                        char *tmp_key = slot->key;
+                        void *tmp_val = slot->value;
+                        slot->key = __key;
+                        slot->value = __val;
+                        slot->rh_probe = jump;
+                        __key = tmp_key;
+                        __val = tmp_val;
+                        jump = slot_jump;
+                        pos = this->hash(__key) % this->cap;
+                }
+                jump++;
+                assert(jump < RH_PROBE_JUMP_MASK &&
+                       "too many collision, weak hash or too full");
+        }
+}
 
 //
 // DEBUG PRINT
