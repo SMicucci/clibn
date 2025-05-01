@@ -40,9 +40,9 @@ struct hashmap {
 
 u_int64_t hash(const char *key);
 static inline void hashmap_grow(hashmap *this);
-static inline void hash_probe(hashmap *this, const char *key,
-                              const void *value);
-// static inline void hashmap_rehash(hashmap *this);
+static inline void hashmap_probe(hashmap *this, const char *key,
+                                 const void *value);
+// static inline hash_node *hashmap_find(hashmap *this, const char key);
 
 /**
  * EXTERNAL IMPLEMENTATION
@@ -59,10 +59,7 @@ hashmap *_hashmap_new(u_int64_t size, const char *type)
         strcpy(this->type, type);
         this->data = calloc(this->cap, sizeof(hash_node));
         for (u_int64_t i = 0; i < this->cap; i++) {
-                hash_node *trg = &(this->data[i]);
-                trg->rh_probe = RH_PROBE_EMPTY;
-                trg->key = NULL;
-                trg->value = NULL;
+                this->data[i] = (hash_node){RH_PROBE_EMPTY, NULL, NULL};
         }
         return this;
 }
@@ -114,10 +111,28 @@ u_int64_t hash(const char *key)
 
 static inline void hashmap_grow(hashmap *this)
 {
-        hash_node *new_data = calloc(this->cap << 2, sizeof(*new_data));
+        assert(this && "null hashmap pointer");
+        float fullness = (float)this->len / this->cap;
+        if (HASHMAP_TRESHOLD > fullness)
+                return;
+        hash_node *old = this->data;
+        this->cap <<= 1;
+        this->data = calloc(this->cap, sizeof(*this->data));
+        for (u_int64_t i; i < this->cap >> 1; i++) {
+                hash_node *iter = &old[i];
+                if (iter->rh_probe & RH_PROBE_EMPTY ||
+                    iter->rh_probe & RH_PROBE_TOMB) {
+                        continue;
+                }
+                hashmap_probe(this, iter->key, iter->value);
+                free(iter->key);
+                free(iter->value);
+        }
+        free(old);
 }
 
-static inline void hash_probe(hashmap *this, const char *key, const void *value)
+static inline void hashmap_probe(hashmap *this, const char *key,
+                                 const void *value)
 {
         assert(this && "null hashmap pointer");
         assert(key && "null key pointer");
@@ -159,6 +174,11 @@ static inline void hash_probe(hashmap *this, const char *key, const void *value)
         }
 }
 
+// static inline hash_node *hashmap_find(hashmap *this, const char key)
+// {
+//         return NULL;
+// }
+
 //
 // DEBUG PRINT
 //
@@ -174,6 +194,7 @@ static inline void hash_probe(hashmap *this, const char *key, const void *value)
 #define B "\x1b[34m"
 #define P "\x1b[35m"
 #define C "\x1b[36m"
+
 static inline void print_hex(void *arg, u_int64_t size)
 {
         for (u_int64_t i = 0; i < size; i++) {
@@ -185,7 +206,29 @@ static inline void print_hex(void *arg, u_int64_t size)
         }
 }
 
-void hashmap_print(hashmap *this, void (*print_value)(void *));
+void hashmap_print(hashmap *this, void (*print_value)(void *))
+{
+        assert(this && "null hashmap pointer");
+        assert(this->data && "not valid hashmap");
+        printf("%shashmap%s<%s%s%s>%s: ", C, Y, B, this->type, Y, D);
+        printf("%s%lu%s [%s%lu%s]\n", S, this->len, s, R, this->cap, D);
+        u_int64_t i = 0;
+        u_int8_t l_len = 20;
+        while (i < this->cap) {
+                hash_node *trg = this->data + i++;
+                u_int8_t empty_trg = (trg->rh_probe & RH_PROBE_EMPTY) +
+                                     (trg->rh_probe & RH_PROBE_TOMB);
+                if (empty_trg)
+                        continue;
+                printf("\"%s%*s%s\"%s:%s [%s", G, l_len, trg->key, D, G, D, B);
+                if (print_value) {
+                        print_value(trg->value);
+                } else {
+                        print_hex(trg->value, this->size);
+                }
+                printf("%s]\n", D);
+        }
+}
 
 #undef D
 #undef S
