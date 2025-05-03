@@ -27,6 +27,8 @@
 
 extern void hashmap_print(hashmap *this, void (*print_value)(void *));
 u_int64_t nohash(const char *key);
+void print_int(void *v);
+void print_float(void *v);
 
 int main(void)
 {
@@ -38,7 +40,7 @@ int main(void)
         ////////////////////////////////////////////////////////////////////////
         printf("> new hashmap\n");
         hashmap *map = hashmap_new(int);
-        hashmap_print(map, NULL);
+        hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_insert
         ////////////////////////////////////////////////////////////////////////
@@ -48,7 +50,7 @@ int main(void)
                 hashmap_insert(map, keys[i], &val);
                 printf("\t\"%s\" -> %d\n", keys[i], val);
         }
-        hashmap_print(map, NULL);
+        hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_peek
         ////////////////////////////////////////////////////////////////////////
@@ -58,7 +60,7 @@ int main(void)
                 printf("\t\"%s\" -> %d\n", keys[i], *val);
                 free(val);
         }
-        hashmap_print(map, NULL);
+        hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_set
         ////////////////////////////////////////////////////////////////////////
@@ -68,7 +70,7 @@ int main(void)
                 hashmap_set(map, keys[i], &val);
                 printf("\t\"%s\" -> %d\n", keys[i], val);
         }
-        hashmap_print(map, NULL);
+        hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_set
         ////////////////////////////////////////////////////////////////////////
@@ -78,7 +80,7 @@ int main(void)
                 printf("\t\"%s\" -> %d\n", keys[i], *val);
                 free(val);
         }
-        hashmap_print(map, NULL);
+        hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_delete
         ////////////////////////////////////////////////////////////////////////
@@ -90,7 +92,7 @@ int main(void)
         ////////////////////////////////////////////////////////////////////////
         printf("> create new hashmap\n");
         map = hashmap_new(float);
-        hashmap_print(map, NULL);
+        hashmap_print(map, print_float);
         printf("> add bad hash function to hashmap\n");
         hashmap_set_hash(map, nohash);
         return 0;
@@ -103,3 +105,6 @@ u_int64_t nohash(const char *key)
         fclose(fp);
         return 0;
 }
+
+void print_int(void *v) { printf("%d", *(int *)v); }
+void print_float(void *v) { printf("%f", *(float *)v); }
