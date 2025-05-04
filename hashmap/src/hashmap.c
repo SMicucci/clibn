@@ -144,6 +144,7 @@ void *hashmap_remove(hashmap *this, const char *key)
         assert(this && "null hashmap pointer");
         assert(this->data && "invalid hashmap pointer");
         hash_node *trg = hashmap_find(this, key, 1);
+        this->len--;
         void *res = trg->value;
         free(trg->key);
         trg->value = NULL;
