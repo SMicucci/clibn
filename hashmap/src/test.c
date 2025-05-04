@@ -1,4 +1,5 @@
 #include "../include/hashmap.h"
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -103,6 +104,28 @@ int main(void)
         printf("> reset hash function\n");
         hashmap_set_hash(map, NULL);
         hashmap_print(map, print_int);
+        ////////////////////////////////////////////////////////////////////////
+        /// hashmap_keys
+        ////////////////////////////////////////////////////////////////////////
+        printf("> get hashmap keys\n");
+        char **arr_keys = hashmap_keys(map);
+        ////////////////////////////////////////////////////////////////////////
+        /// hashmap_values
+        ////////////////////////////////////////////////////////////////////////
+        printf("> get hashmap keys\n");
+        int **arr_vals = (int **)hashmap_values(map);
+        hashmap_print(map, print_int);
+        printf("> print pairs key-value\n");
+        for (u_int64_t i = 0; i < hashmap_len(map); i++) {
+                // printf("%lu -> \"%s\"\n", i, arr_keys[i]);
+                printf("%lu -> \"%s\" [%d]\n", i, arr_keys[i], *arr_vals[i]);
+                free(arr_keys[i]);
+                free(arr_vals[i]);
+        }
+        free(arr_keys);
+        arr_keys = NULL;
+        free(arr_vals);
+        arr_vals = NULL;
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_delete
         ////////////////////////////////////////////////////////////////////////

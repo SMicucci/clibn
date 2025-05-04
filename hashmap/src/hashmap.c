@@ -80,7 +80,7 @@ void hashmap_delete(hashmap *this)
         free(this);
 }
 
-const char *hashmap_type(hashmap *this)
+char *hashmap_type(hashmap *this)
 {
         assert(this && "null hashmap pointer");
         assert(this->data && "invalid hashmap pointer");
@@ -88,18 +88,21 @@ const char *hashmap_type(hashmap *this)
         strcpy(res, this->type);
         return res;
 }
+
 u_int64_t hashmap_len(hashmap *this)
 {
         assert(this && "null hashmap pointer");
         assert(this->data && "invalid hashmap pointer");
         return this->len;
 }
+
 u_int64_t hashmap_cap(hashmap *this)
 {
         assert(this && "null hashmap pointer");
         assert(this->data && "invalid hashmap pointer");
         return this->cap;
 }
+
 u_int64_t hashmap_size(hashmap *this)
 {
         assert(this && "null hashmap pointer");
@@ -139,6 +142,7 @@ void hashmap_insert(hashmap *this, const char *key, const void *value)
         memcpy(trg->value, value, this->size);
         return;
 }
+
 void *hashmap_remove(hashmap *this, const char *key)
 {
         assert(this && "null hashmap pointer");
@@ -170,17 +174,38 @@ void hashmap_set_hash(hashmap *this, u_int64_t (*hash)(const char *key))
         return;
 }
 
-const char **hashmap_keys(hashmap *this)
+char **hashmap_keys(hashmap *this)
 {
-        printf("%p\r", this);
-        printf("not implemented yet\n");
-        return NULL;
+        assert(this && "null hashmap pointer");
+        assert(this->data && "invalid hashmap pointer");
+        char **res = calloc(this->len, sizeof(*res));
+        u_int64_t pos = 0;
+        for (u_int64_t i = 0; i < this->cap; i++) {
+                assert(pos <= this->len && "write out of scope");
+                hash_node node = this->data[i];
+                if (node.rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB))
+                        continue;
+                res[pos] = calloc(strlen(node.key) + 1, 1);
+                strcpy(res[pos++], node.key);
+        }
+        return res;
 }
-const void **hashmap_values(hashmap *this)
+
+void **hashmap_values(hashmap *this)
 {
-        printf("%p\r", this);
-        printf("not implemented yet\n");
-        return NULL;
+        assert(this && "null hashmap pointer");
+        assert(this->data && "invalid hashmap pointer");
+        void **res = calloc(this->len, sizeof(*res));
+        u_int64_t pos = 0;
+        for (u_int64_t i = 0; i < this->cap; i++) {
+                assert(pos <= this->len && "write out of scope");
+                hash_node node = this->data[i];
+                if (node.rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB))
+                        continue;
+                res[pos] = calloc(1, this->size);
+                memcpy(res[pos++], node.value, this->size);
+        }
+        return res;
 }
 
 /**
@@ -233,6 +258,7 @@ static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t)
         u_int64_t pos = this->hash(key) % this->cap;
         u_int8_t jump = 0;
         while (1) {
+                // traingulation {(j^2 + j)/2}
                 u_int64_t offset = ((jump * jump + jump) >> 1);
                 u_int64_t index = (pos + offset) % this->cap;
                 hash_node *iter = &(this->data[index]);
