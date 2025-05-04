@@ -209,9 +209,7 @@ static inline void hashmap_grow(hashmap *this)
                 if (iter->rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB)) {
                         continue;
                 }
-                printf(" - test (%p) \"%s\"\n", this->data, iter->key);
                 hash_node *trg = hashmap_find(this, iter->key, 0);
-                printf("test (%lu)\n", i);
                 trg->key = iter->key;
                 trg->value = iter->value;
         }
@@ -256,11 +254,6 @@ static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t)
         }
 }
 
-// static inline hash_node *hashmap_find(hashmap *this, const char key)
-// {
-//         return NULL;
-// }
-
 //
 // DEBUG PRINT
 //
@@ -297,17 +290,23 @@ void hashmap_print(hashmap *this, void (*print_value)(void *))
         u_int64_t i = 0;
         while (i < this->cap) {
                 hash_node *trg = this->data + i++;
-                u_int8_t empty_trg = (trg->rh_probe & RH_PROBE_EMPTY) +
-                                     (trg->rh_probe & RH_PROBE_TOMB);
-                if (empty_trg)
-                        continue;
-                printf("\t%s\"%s\":%s [%s", G, trg->key, D, B);
-                if (print_value) {
-                        print_value(trg->value);
+                u_int8_t empty_trg =
+                    trg->rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB);
+                if (empty_trg) {
+                        printf("\t<%s0x%02x%s> ", R, trg->rh_probe, D);
+                        printf("%s%p%s:", P, trg->key, D);
+                        printf(" %s%p%s\n", P, trg->value, D);
                 } else {
-                        print_hex(trg->value, this->size);
+                        printf("\t<%s0x%02x%s> ", G, trg->rh_probe, D);
+                        printf("\"%s%s%s\":", B, trg->key, D);
+                        printf(" [%s", B);
+                        if (print_value) {
+                                print_value(trg->value);
+                        } else {
+                                print_hex(trg->value, this->size);
+                        }
+                        printf("%s]\n", D);
                 }
-                printf("%s]\n", D);
         }
 }
 

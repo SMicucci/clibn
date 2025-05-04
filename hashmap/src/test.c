@@ -34,7 +34,7 @@ int main(void)
 {
         // pseudo random keys for stress test
         const char *keys[] = {KEYS_LIST};
-        u_int8_t limit = 5;
+        u_int8_t limit = 12;
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_new
         ////////////////////////////////////////////////////////////////////////
