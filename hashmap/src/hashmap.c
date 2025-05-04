@@ -15,7 +15,7 @@
 #define RH_PROBE_JUMP_MASK 0x3F
 
 #ifndef HASHMAP_INIT_CAP
-#define HASHMAP_INIT_CAP (1 << 5)
+#define HASHMAP_INIT_CAP (1 << 2)
 #endif
 #ifndef HASHMAP_THRESHOLD
 #define HASHMAP_THRESHOLD 0.85
@@ -38,10 +38,10 @@ struct hashmap {
  * INTERNAL IMPLEMENTATION
  */
 
-u_int64_t hash(const char *key);
+u_int64_t default_hash(const char *key);
 static inline void hashmap_grow(hashmap *this);
 static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t);
-// static inline hash_node *hashmap_find(hashmap *this, const char key);
+static inline void hashmap_rehash(hashmap *this);
 
 /**
  * EXTERNAL IMPLEMENTATION
@@ -53,7 +53,7 @@ hashmap *_hashmap_new(u_int64_t size, const char *type)
         this->cap = HASHMAP_INIT_CAP;
         this->len = 0;
         this->size = size;
-        this->hash = hash;
+        this->hash = default_hash;
         this->type = calloc(strlen(type) + 1, 1);
         strcpy(this->type, type);
         this->data = calloc(this->cap, sizeof(hash_node));
@@ -155,16 +155,21 @@ void *hashmap_remove(hashmap *this, const char *key)
 
 void hashmap_set_hash(hashmap *this, u_int64_t (*hash)(const char *key))
 {
-        printf("%p\r%p\r", this, hash);
-        printf("not implemented yet\n");
+        assert(this && "null hashmap pointer");
+        assert(this->data && "invalid hashmap pointer");
+        if (!hash && this->hash == default_hash)
+                return;
+        if (hash == this->hash)
+                return;
+        if (!hash) {
+                this->hash = default_hash;
+        } else {
+                this->hash = hash;
+        }
+        hashmap_rehash(this);
         return;
 }
-void hashmap_reset_hash(hashmap *this)
-{
-        printf("%p\r", this);
-        printf("not implemented yet\n");
-        return;
-}
+
 const char **hashmap_keys(hashmap *this)
 {
         printf("%p\r", this);
@@ -182,7 +187,7 @@ const void **hashmap_values(hashmap *this)
  * INTERNAL IMPLEMENTATION
  */
 
-u_int64_t hash(const char *key)
+u_int64_t default_hash(const char *key)
 {
         u_int64_t hash = 5381;
         u_int64_t c;
@@ -195,6 +200,7 @@ u_int64_t hash(const char *key)
 static inline void hashmap_grow(hashmap *this)
 {
         assert(this && "null hashmap pointer");
+        assert(this->data && "invalid hashmap pointer");
         float fullness = (float)(this->len) / (float)(this->cap);
         if (HASHMAP_THRESHOLD > fullness)
                 return;
@@ -205,6 +211,9 @@ static inline void hashmap_grow(hashmap *this)
         for (u_int64_t i = 0; i < this->cap; i++) {
                 this->data[i] = (hash_node){RH_PROBE_EMPTY, NULL, NULL};
         }
+        // re-insert nodes
+        if (!this->len)
+                return;
         for (u_int64_t i = 0; i < this->cap >> 1; i++) {
                 hash_node *iter = &old[i];
                 if (iter->rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB)) {
@@ -224,7 +233,8 @@ static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t)
         u_int64_t pos = this->hash(key) % this->cap;
         u_int8_t jump = 0;
         while (1) {
-                u_int64_t index = (pos + (jump * jump)) % this->cap;
+                u_int64_t offset = ((jump * jump + jump) >> 1);
+                u_int64_t index = (pos + offset) % this->cap;
                 hash_node *iter = &(this->data[index]);
                 // available slot
                 if (iter->rh_probe & RH_PROBE_EMPTY) {
@@ -235,11 +245,13 @@ static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t)
                         return iter;
                 // insert case
                 if (!sk_t) {
-                        if (iter->rh_probe & RH_PROBE_TOMB)
+                        if (iter->rh_probe & RH_PROBE_TOMB) {
+                                iter->rh_probe = (jump & RH_PROBE_JUMP_MASK);
                                 return iter;
+                        }
                         // robin hood swap
                         u_int8_t i_jump = iter->rh_probe & RH_PROBE_JUMP_MASK;
-                        if (i_jump < jump) {
+                        if (i_jump < jump && iter->key) {
                                 char *k = iter->key;
                                 void *v = iter->value;
                                 iter->rh_probe = (jump & RH_PROBE_JUMP_MASK);
@@ -255,6 +267,32 @@ static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t)
                 assert(jump < RH_PROBE_JUMP_MASK &&
                        "too many collision, weak hash or too full");
         }
+}
+
+static inline void hashmap_rehash(hashmap *this)
+{
+        assert(this && "null hashmap pointer");
+        assert(this->data && "invalid hashmap pointer");
+        if (!this->len)
+                return;
+        hash_node *old = this->data;
+        this->data = calloc(this->cap, sizeof(*this->data));
+        // init new data
+        for (u_int64_t i = 0; i < this->cap; i++) {
+                this->data[i] = (hash_node){RH_PROBE_EMPTY, NULL, NULL};
+        }
+        // insertion
+        for (u_int64_t i = 0; i < this->cap; i++) {
+                hash_node *iter = &old[i];
+                if (iter->rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB)) {
+                        continue;
+                }
+                hash_node *trg = hashmap_find(this, iter->key, 0);
+                trg->key = iter->key;
+                trg->value = iter->value;
+        }
+        free(old);
+        return;
 }
 
 //
@@ -296,7 +334,11 @@ void hashmap_print(hashmap *this, void (*print_value)(void *))
                 u_int8_t empty_trg =
                     trg->rh_probe & (RH_PROBE_EMPTY | RH_PROBE_TOMB);
                 if (empty_trg) {
-                        printf("\t<%s0x%02x%s> ", R, trg->rh_probe, D);
+                        if (trg->rh_probe & RH_PROBE_TOMB) {
+                                printf("\t<%s0x%02x%s> ", Y, trg->rh_probe, D);
+                        } else {
+                                printf("\t<%s0x%02x%s> ", R, trg->rh_probe, D);
+                        }
                         printf("%s%p%s:", P, trg->key, D);
                         printf(" %s%p%s\n", P, trg->value, D);
                 } else {
