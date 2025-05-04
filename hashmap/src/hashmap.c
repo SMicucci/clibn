@@ -242,6 +242,8 @@ static inline hash_node *hashmap_find(hashmap *this, const char *key, int sk_t)
                                 char *k = iter->key;
                                 void *v = iter->value;
                                 iter->rh_probe = (jump & RH_PROBE_JUMP_MASK);
+                                iter->key = NULL;
+                                iter->value = NULL;
                                 hash_node *t = hashmap_find(this, k, sk_t);
                                 t->key = k;
                                 t->value = v;
