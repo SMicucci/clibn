@@ -26,15 +26,15 @@
             "svg", "webhook", "pagination", "crossorigin"
 
 extern void hashmap_print(hashmap *this, void (*print_value)(void *));
-u_int64_t nohash(const char *key);
+u_int64_t weakhash(const char *key);
 void print_int(void *v);
-void print_float(void *v);
+// void print_float(void *v);
 
 int main(void)
 {
         // pseudo random keys for stress test
         const char *keys[] = {KEYS_LIST};
-        u_int8_t limit = 12;
+        u_int8_t limit = 20;
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_new
         ////////////////////////////////////////////////////////////////////////
@@ -72,14 +72,36 @@ int main(void)
         }
         hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
-        /// hashmap_set
+        /// hashmap_remove
         ////////////////////////////////////////////////////////////////////////
-        printf("> remove from hashmap\n");
-        for (u_int8_t i = 0; i < limit; i++) {
+        printf("> remove half from hashmap\n");
+        for (u_int8_t i = 0; i < (limit / 2); i++) {
                 int *val = hashmap_remove(map, keys[i]);
                 printf("\t\"%s\" -> %d\n", keys[i], *val);
                 free(val);
         }
+        hashmap_print(map, print_int);
+        ////////////////////////////////////////////////////////////////////////
+        /// hashmap_insert
+        ////////////////////////////////////////////////////////////////////////
+        printf("> insert new into hashmap\n");
+        for (u_int8_t i = limit; i < (limit << 1); i++) {
+                int val = ((i + 1) << 4) + (i + 1);
+                hashmap_insert(map, keys[i], &val);
+                printf("\t\"%s\" -> %d\n", keys[i], val);
+        }
+        hashmap_print(map, print_int);
+        ////////////////////////////////////////////////////////////////////////
+        /// hashmap_set_hash
+        ////////////////////////////////////////////////////////////////////////
+        printf("> add bad hash function to hashmap\n");
+        hashmap_set_hash(map, weakhash);
+        hashmap_print(map, print_int);
+        ////////////////////////////////////////////////////////////////////////
+        /// hashmap_set_hash
+        ////////////////////////////////////////////////////////////////////////
+        printf("> reset hash function\n");
+        hashmap_set_hash(map, NULL);
         hashmap_print(map, print_int);
         ////////////////////////////////////////////////////////////////////////
         /// hashmap_delete
@@ -87,24 +109,17 @@ int main(void)
         printf("> delete hashmap\n");
         hashmap_delete(map);
         map = NULL;
-        ////////////////////////////////////////////////////////////////////////
-        /// hashmap_set_hash
-        ////////////////////////////////////////////////////////////////////////
-        printf("> create new hashmap\n");
-        map = hashmap_new(float);
-        hashmap_print(map, print_float);
-        printf("> add bad hash function to hashmap\n");
-        hashmap_set_hash(map, nohash);
         return 0;
 }
 
-u_int64_t nohash(const char *key)
+u_int64_t weakhash(const char *key)
 {
-        FILE *fp = fopen("/dev/null", "w+");
-        fprintf(fp, "%s\n", key);
-        fclose(fp);
-        return 0;
+        u_int64_t hash = 0;
+        for (u_int64_t i = 0; i < strlen(key); i++) {
+                hash += (u_int64_t)key[i];
+        }
+        return hash;
 }
 
 void print_int(void *v) { printf("%d", *(int *)v); }
-void print_float(void *v) { printf("%f", *(float *)v); }
+// void print_float(void *v) { printf("%f", *(float *)v); }
