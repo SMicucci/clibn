@@ -15,7 +15,7 @@
 #define RH_PROBE_JUMP_MASK 0x3F
 
 #ifndef HASHMAP_INIT_CAP
-#define HASHMAP_INIT_CAP (1 << 2)
+#define HASHMAP_INIT_CAP (1 << 5)
 #endif
 #ifndef HASHMAP_THRESHOLD
 #define HASHMAP_THRESHOLD 0.85
